@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: "Production-grade Next.js 15 starter",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

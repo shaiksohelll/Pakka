@@ -119,11 +119,24 @@ export function WorkerOnboardingForm() {
   });
 
   return (
-    <form onSubmit={submit} className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <Card className="mt-4">
+    <form onSubmit={submit} className="flex flex-col gap-4">
+      {/* Step indicator pills */}
+      <div className="flex gap-1.5" aria-label={`Step ${currentStep + 1} of ${STEPS.length}`}>
+        {STEPS.map((step, index) => (
+          <div
+            key={step}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${
+              index <= currentStep ? "bg-primary" : "bg-muted"
+            }`}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-xl text-primary">
-            Worker KYC - Step {currentStep + 1}/5: {stepTitle}
+            Worker KYC — Step {currentStep + 1}/{STEPS.length}: {stepTitle}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -265,7 +278,7 @@ export function WorkerOnboardingForm() {
                       className="rounded-full border px-3 py-1 text-xs"
                       onClick={() => removeSkillTag(tag)}
                     >
-                      {tag} x
+                      {tag} ×
                     </button>
                   ))}
                 </div>
@@ -275,27 +288,25 @@ export function WorkerOnboardingForm() {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 mt-auto border-t bg-background/95 py-4 backdrop-blur">
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={!canGoBack}
-            onClick={prevStep}
-          >
-            Back
+      {/* Navigation buttons — inside the 480px column, NOT a full-viewport sticky bar */}
+      <div className="grid grid-cols-2 gap-3 pb-6">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!canGoBack}
+          onClick={prevStep}
+        >
+          Back
+        </Button>
+        {canGoNext ? (
+          <Button type="button" onClick={nextStep}>
+            Next
           </Button>
-          {canGoNext ? (
-            <Button type="button" className="w-full" onClick={nextStep}>
-              Next
-            </Button>
-          ) : (
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Submitting..." : "Submit KYC"}
-            </Button>
-          )}
-        </div>
+        ) : (
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Submitting…" : "Submit KYC"}
+          </Button>
+        )}
       </div>
     </form>
   );
