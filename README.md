@@ -66,14 +66,17 @@ See [`docs/adr/0001-escrow-state-machine-in-postgres.md`](docs/adr/0001-escrow-s
 
 ## Demo credentials
 
-> The live demo runs in Demo Mode. Use phone `+91 9999999999` and OTP `123456` to log in as any seeded user. No SMS is sent.
+> The live demo runs in Demo Mode. Log in at `/login` with any phone below. OTP is always **123456** — no SMS is sent.
 
-| Role                 | Phone            | What you can see                        |
-| -------------------- | ---------------- | --------------------------------------- |
-| Client               | `+91 9999900001` | Funded jobs, approve/dispute milestones |
-| Worker (verified)    | `+91 9999900011` | Submit proofs, withdrawable balance     |
-| Worker (KYC pending) | `+91 9999900012` | Browse-only state                       |
-| Admin                | `+91 9999900099` | Dispute kill-switch, KYC review queue   |
+| Role | Phone | Notes |
+| --- | --- | --- |
+| Client | `+91 98765 00001` | Priya — active jobs, escrow funded |
+| Client | `+91 98765 00002` | Rohit — milestone awaiting review |
+| Client | `+91 98765 00003` | Anjali — has an open dispute |
+| Worker | `+91 98765 00011` | Ravi — gold tier, verified, job completed |
+| Worker | `+91 98765 00012` | Suresh — submitted milestone |
+| Worker | `+91 98765 00014` | Deepak — KYC pending (browse-only) |
+| Admin  | `+91 98765 00099` | Demo admin — use `/admin` route |
 
 ## Local development
 
@@ -98,7 +101,11 @@ See [`docs/adr/0001-escrow-state-machine-in-postgres.md`](docs/adr/0001-escrow-s
 4. Run migrations against your Supabase project
    supabase link --project-ref YOUR_REF
    supabase db push
-5. Seed demo data (run supabase/seed.sql in the SQL Editor)
+5. Add your service role key to .env.local (see .env.local.example)
+   Then seed demo data:
+   pnpm seed
+   # or to wipe and re-seed:
+   pnpm seed --reset
 6. Start
    pnpm dev
 
