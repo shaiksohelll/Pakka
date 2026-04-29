@@ -70,6 +70,161 @@ export type Database = {
           created_at?: string;
         };
       };
+      jobs: {
+        Row: {
+          id: string;
+          client_id: string;
+          worker_id: string | null;
+          title: string;
+          description: string | null;
+          category: string;
+          location_text: string | null;
+          lat: number | null;
+          lng: number | null;
+          total_budget: number;
+          status: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          created_at: string;
+          accepted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          worker_id?: string | null;
+          title: string;
+          description?: string | null;
+          category: string;
+          location_text?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          total_budget: number;
+          status?: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          created_at?: string;
+          accepted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          worker_id?: string | null;
+          title?: string;
+          description?: string | null;
+          category?: string;
+          location_text?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          total_budget?: number;
+          status?: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          created_at?: string;
+          accepted_at?: string | null;
+        };
+      };
+      milestones: {
+        Row: {
+          id: string;
+          job_id: string;
+          sequence: number;
+          title: string;
+          description: string | null;
+          amount: number;
+          status: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          auto_release_at: string | null;
+          submitted_at: string | null;
+          approved_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          sequence: number;
+          title: string;
+          description?: string | null;
+          amount: number;
+          status?: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          auto_release_at?: string | null;
+          submitted_at?: string | null;
+          approved_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          sequence?: number;
+          title?: string;
+          description?: string | null;
+          amount?: number;
+          status?: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          auto_release_at?: string | null;
+          submitted_at?: string | null;
+          approved_at?: string | null;
+          created_at?: string;
+        };
+      };
+      materials: {
+        Row: {
+          id: string;
+          job_id: string;
+          vendor_name: string;
+          item_name: string;
+          qty: number;
+          amount: number;
+          status: "requested" | "paid" | "delivered";
+          invoice_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          vendor_name: string;
+          item_name: string;
+          qty: number;
+          amount: number;
+          status?: "requested" | "paid" | "delivered";
+          invoice_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          vendor_name?: string;
+          item_name?: string;
+          qty?: number;
+          amount?: number;
+          status?: "requested" | "paid" | "delivered";
+          invoice_url?: string | null;
+          created_at?: string;
+        };
+      };
+      job_applications: {
+        Row: {
+          id: string;
+          job_id: string;
+          worker_id: string;
+          bid_amount: number;
+          eta_days: number;
+          message: string | null;
+          status: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          worker_id: string;
+          bid_amount: number;
+          eta_days: number;
+          message?: string | null;
+          status?: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          worker_id?: string;
+          bid_amount?: number;
+          eta_days?: number;
+          message?: string | null;
+          status?: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
+          created_at?: string;
+        };
+      };
       notifications: {
         Row: {
           id: string;
@@ -139,3 +294,4 @@ export type Database = {
     CompositeTypes: Record<string, never>;
   };
 };
+

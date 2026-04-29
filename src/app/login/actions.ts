@@ -9,8 +9,6 @@ export type AuthActionResult = {
   redirectTo?: string;
 };
 
-const demoModeEnabled =
-  process.env.DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export async function requestOtpAction(input: { phone: string }): Promise<AuthActionResult> {
   const parsed = phoneSchema.safeParse(input);
@@ -21,9 +19,7 @@ export async function requestOtpAction(input: { phone: string }): Promise<AuthAc
   const phone = `+91${parsed.data.phone}`;
   const redirectTo = `/login/verify?phone=${parsed.data.phone}`;
 
-  if (demoModeEnabled) {
-    return { success: true, redirectTo };
-  }
+
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
@@ -43,9 +39,7 @@ export async function resendOtpAction(input: { phone: string }): Promise<AuthAct
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid phone number." };
   }
 
-  if (demoModeEnabled) {
-    return { success: true };
-  }
+
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
@@ -71,28 +65,14 @@ export async function verifyOtpAction(input: {
   const supabase = await createClient();
   const phone = `+91${parsed.data.phone}`;
 
-  if (demoModeEnabled) {
-    if (parsed.data.otp !== "123456") {
-      return { success: false, error: "Invalid OTP for demo mode." };
-    }
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    phone,
+    token: parsed.data.otp,
+    type: "sms",
+  });
 
-    const { error: demoSignInError } = await supabase.auth.signInAnonymously();
-    if (demoSignInError) {
-      return {
-        success: false,
-        error: `Demo sign-in failed: ${demoSignInError.message}`,
-      };
-    }
-  } else {
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      phone,
-      token: parsed.data.otp,
-      type: "sms",
-    });
-
-    if (verifyError) {
-      return { success: false, error: verifyError.message };
-    }
+  if (verifyError) {
+    return { success: false, error: verifyError.message };
   }
 
   const {
@@ -132,23 +112,9 @@ export async function verifyOtpAction(input: {
     return { success: true, redirectTo: "/admin" };
   }
 
-  const { data: workerRows, error: workerError } = await supabase
-    .from("worker_profiles")
-    .select("kyc_status")
-    .eq("profile_id", user.id)
-    .limit(1);
-
-  if (workerError) {
-    return { success: false, error: workerError.message };
+  if (role === "worker") {
+    return { success: true, redirectTo: "/worker/feed" };
   }
 
-  const workerProfile =
-    ((workerRows as unknown as Array<{ kyc_status: "pending" | "verified" | "rejected" }> | null) ??
-      [])[0] ?? null;
-
-  if (workerProfile?.kyc_status === "verified") {
-    return { success: true, redirectTo: "/worker" };
-  }
-
-  return { success: true, redirectTo: "/worker/kyc-pending" };
+  return { success: true, redirectTo: "/" };
 }

@@ -106,12 +106,20 @@ export async function completeWorkerOnboardingAction(
       .filter(Boolean),
   };
 
+  const selfie = formData.get("selfie");
+  
+  console.log("kyc-action invoked", { 
+    name: payload.fullName, 
+    hasSelfie: !!selfie, 
+    categories: payload.categories, 
+    skillTags: payload.skillTags 
+  });
+
   const parsed = workerOnboardingSchema.safeParse(payload);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid worker details." };
   }
 
-  const selfie = formData.get("selfie");
   if (!(selfie instanceof File) || selfie.size === 0) {
     return { success: false, error: "A selfie image is required." };
   }
@@ -122,7 +130,8 @@ export async function completeWorkerOnboardingAction(
   }
 
   const selfiePath = `${userId}/selfie-${Date.now()}.jpg`;
-  const { error: uploadError } = await supabase.storage.from("kyc").upload(selfiePath, selfie, {
+  const selfieBuffer = await selfie.arrayBuffer();
+  const { error: uploadError } = await supabase.storage.from("kyc").upload(selfiePath, selfieBuffer, {
     contentType: selfie.type || "image/jpeg",
     upsert: false,
   });
