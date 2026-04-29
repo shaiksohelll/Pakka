@@ -4,13 +4,14 @@ import { useEffect, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Users, Calendar, CheckCircle2, Loader2 } from "lucide-react";
+import { Users, Calendar, CheckCircle2, Loader2, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { acceptWorkerAction } from "@/app/_actions/jobs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { buttonVariants } from "@/components/ui/button";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -177,7 +178,7 @@ export function ClientJobDetail() {
       queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
       queryClient.invalidateQueries({ queryKey: ["client-jobs"] });
       // Redirect to fund placeholder
-      window.location.href = `/client/jobs/${jobId}/fund`;
+      window.location.href = `/client/jobs/${jobId}/milestones`;
     });
   }
 
@@ -242,6 +243,20 @@ export function ClientJobDetail() {
             </li>
           ))}
         </ol>
+
+        {/* Manage Milestones CTA for assigned / in_progress jobs */}
+        {(job.status === "assigned" || job.status === "in_progress") && (
+          <a
+            href={`/client/jobs/${jobId}/milestones`}
+            className={cn(
+              buttonVariants({ size: "sm" }),
+              "w-full gap-1.5 bg-blue-600 hover:bg-blue-700 mt-3",
+            )}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Manage Escrow & Milestones
+          </a>
+        )}
       </section>
 
       {/* ── Materials ── */}

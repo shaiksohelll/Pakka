@@ -257,9 +257,188 @@ export type Database = {
           created_at?: string;
         };
       };
+      wallets: {
+        Row: {
+          profile_id: string;
+          locked_balance: number;
+          available_balance: number;
+          currency: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          locked_balance?: number;
+          available_balance?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          locked_balance?: number;
+          available_balance?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      escrow_ledger: {
+        Row: {
+          id: string;
+          job_id: string;
+          milestone_id: string | null;
+          from_wallet: string | null;
+          to_wallet: string | null;
+          amount: number;
+          type: "fund" | "release" | "refund" | "topup" | "withdraw";
+          reference_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          milestone_id?: string | null;
+          from_wallet?: string | null;
+          to_wallet?: string | null;
+          amount: number;
+          type: "fund" | "release" | "refund" | "topup" | "withdraw";
+          reference_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          milestone_id?: string | null;
+          from_wallet?: string | null;
+          to_wallet?: string | null;
+          amount?: number;
+          type?: "fund" | "release" | "refund" | "topup" | "withdraw";
+          reference_id?: string | null;
+          created_at?: string;
+        };
+      };
+      disputes: {
+        Row: {
+          id: string;
+          job_id: string;
+          milestone_id: string | null;
+          raised_by: string;
+          reason: string;
+          status: "open" | "mediating" | "resolved_client" | "resolved_worker" | "split";
+          resolution_notes: string | null;
+          resolved_by: string | null;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          milestone_id?: string | null;
+          raised_by: string;
+          reason: string;
+          status?: "open" | "mediating" | "resolved_client" | "resolved_worker" | "split";
+          resolution_notes?: string | null;
+          resolved_by?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          milestone_id?: string | null;
+          raised_by?: string;
+          reason?: string;
+          status?: "open" | "mediating" | "resolved_client" | "resolved_worker" | "split";
+          resolution_notes?: string | null;
+          resolved_by?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+      };
+      proofs: {
+        Row: {
+          id: string;
+          milestone_id: string;
+          type: "photo" | "video";
+          storage_path: string;
+          caption: string | null;
+          geo_lat: number | null;
+          geo_lng: number | null;
+          taken_at: string | null;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          milestone_id: string;
+          type: "photo" | "video";
+          storage_path: string;
+          caption?: string | null;
+          geo_lat?: number | null;
+          geo_lng?: number | null;
+          taken_at?: string | null;
+          uploaded_at?: string;
+        };
+        Update: {
+          id?: string;
+          milestone_id?: string;
+          type?: "photo" | "video";
+          storage_path?: string;
+          caption?: string | null;
+          geo_lat?: number | null;
+          geo_lng?: number | null;
+          taken_at?: string | null;
+          uploaded_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      fund_escrow: {
+        Args: { p_milestone_id: string };
+        Returns: string;
+      };
+      approve_milestone: {
+        Args: { p_milestone_id: string };
+        Returns: string;
+      };
+      submit_milestone: {
+        Args: { p_milestone_id: string };
+        Returns: string;
+      };
+      dispute_milestone: {
+        Args: { p_milestone_id: string; p_reason: string };
+        Returns: string;
+      };
+      admin_force_release: {
+        Args: { p_milestone_id: string; p_resolution_notes?: string | null };
+        Returns: string;
+      };
+      admin_refund: {
+        Args: { p_milestone_id: string; p_resolution_notes?: string | null };
+        Returns: string;
+      };
+      is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      is_worker: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      is_job_participant: {
+        Args: { p_job_id: string };
+        Returns: boolean;
+      };
+      admin_approve_kyc: {
+        Args: { p_profile_id: string; p_notes?: string | null };
+        Returns: string;
+      };
+      admin_reject_kyc: {
+        Args: { p_profile_id: string; p_notes?: string | null };
+        Returns: string;
+      };
+    };
     Enums: {
       app_role: "client" | "worker" | "admin";
       kyc_status: "pending" | "verified" | "rejected";

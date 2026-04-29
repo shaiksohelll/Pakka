@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
-import { Send, CheckCircle2 } from "lucide-react";
+import { Send, CheckCircle2, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { ApplyModal } from "./apply-modal";
 
 type JobStatus = "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
@@ -180,6 +181,20 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
               </li>
             ))}
           </ol>
+
+          {/* Milestones CTA for assigned jobs */}
+          {(data.status === "assigned" || data.status === "in_progress") && (
+            <a
+              href={`/worker/jobs/${jobId}/milestones`}
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700 mt-3",
+              )}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              View Milestones & Submit Work
+            </a>
+          )}
         </section>
 
         {/* Materials */}
