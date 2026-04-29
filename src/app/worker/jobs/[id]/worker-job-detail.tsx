@@ -112,6 +112,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
   function handleApplySuccess() {
     queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
     queryClient.invalidateQueries({ queryKey: ["worker-applications"] });
+    queryClient.invalidateQueries({ queryKey: ["worker-applied-jobs"] });
   }
 
   if (isLoading) return <WorkerJobSkeleton />;

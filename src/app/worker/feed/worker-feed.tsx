@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { MapPin, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -76,6 +76,25 @@ async function fetchFeedPage({
 export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | "rejected" }) {
   const [selectedCategories, setSelectedCategories] = useState<JobCategory[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
+
+  const { data: appliedJobIds = new Set<string>() } = useQuery({
+    queryKey: ["worker-applied-jobs"],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return new Set<string>();
+
+      const { data } = await supabase
+        .from("job_applications")
+        .select("job_id")
+        .eq("worker_id", user.id);
+
+      return new Set((data ?? []).map((a) => a.job_id));
+    },
+  });
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error, status: queryStatus } =
     useInfiniteQuery({
@@ -219,11 +238,15 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2 ml-3">
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    {workerKyc !== "verified" && (
+                    {workerKyc !== "verified" ? (
                       <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                         KYC required
                       </span>
-                    )}
+                    ) : appliedJobIds.has(job.id) ? (
+                      <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                        Applied
+                      </span>
+                    ) : null}
                   </div>
                 </Link>
               </li>
