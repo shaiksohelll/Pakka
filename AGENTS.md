@@ -21,8 +21,9 @@ Open-source milestone-escrow reference implementation for Indian marketplaces. M
 - Phase 0 (foundations): done
 - Phase 1 (schema + RLS + state machine SQL): done
 - Phase 2 (phone OTP auth + role bifurcation + KYC): done @ commit 2bd5443
-- Phase 3 (jobs CRUD + browse + apply): IN PROGRESS
-- Phase 4-8: pending
+- Phase 3 (jobs CRUD + browse + apply): ✅ done @ commit 577400d
+- Phase 4 (escrow state machine): IN PROGRESS
+- Phase 5-8: pending
 
 ## Key paths
 - `supabase/migrations/` — DO NOT MODIFY, only consume
