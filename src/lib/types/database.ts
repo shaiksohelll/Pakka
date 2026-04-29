@@ -391,6 +391,29 @@ export type Database = {
           uploaded_at?: string;
         };
       };
+      idempotency_keys: {
+        Row: {
+          key: string;
+          user_id: string;
+          action: string;
+          result: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          user_id: string;
+          action: string;
+          result?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          user_id?: string;
+          action?: string;
+          result?: Json | null;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -417,6 +440,10 @@ export type Database = {
       admin_refund: {
         Args: { p_milestone_id: string; p_resolution_notes?: string | null };
         Returns: string;
+      };
+      auto_release_milestones: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       is_admin: {
         Args: Record<string, never>;
