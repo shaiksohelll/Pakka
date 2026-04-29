@@ -79,16 +79,33 @@ async function fetchJobDetail(jobId: string) {
       .eq("job_id", jobId),
     supabase
       .from("job_applications")
-      .select(`
-        id, worker_id, bid_amount, eta_days, message, status, created_at,
-        profiles!job_applications_worker_id_fkey(full_name),
-        worker_profiles!job_applications_worker_id_fkey(trust_tier)
-      `)
+      .select("id, worker_id, bid_amount, eta_days, message, status, created_at")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false }),
   ]);
 
   if (jobRes.error) throw jobRes.error;
+  if (msRes.error) throw msRes.error;
+  if (matRes.error) throw matRes.error;
+  if (appRes.error) throw appRes.error;
+
+  // Enrich applications with worker name + trust tier via two simple lookups
+  const workerIds = Array.from(new Set((appRes.data ?? []).map((a) => a.worker_id)));
+
+  const [profilesRes, workerProfilesRes] =
+    workerIds.length === 0
+      ? [{ data: [] as { id: string; full_name: string | null }[], error: null },
+      { data: [] as { profile_id: string; trust_tier: "bronze" | "silver" | "gold" }[], error: null }]
+      : await Promise.all([
+        supabase.from("profiles").select("id, full_name").in("id", workerIds),
+        supabase.from("worker_profiles").select("profile_id, trust_tier").in("profile_id", workerIds),
+      ]);
+
+  if (profilesRes.error) throw profilesRes.error;
+  if (workerProfilesRes.error) throw workerProfilesRes.error;
+
+  const nameMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name ?? "Worker"]));
+  const tierMap = new Map((workerProfilesRes.data ?? []).map((w) => [w.profile_id, w.trust_tier]));
 
   const applications: Application[] = (appRes.data ?? []).map((a) => ({
     id: a.id,
@@ -98,10 +115,8 @@ async function fetchJobDetail(jobId: string) {
     message: a.message,
     status: a.status as Application["status"],
     created_at: a.created_at,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    worker_name: (a.profiles as any)?.full_name ?? "Worker",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    worker_trust_tier: ((a.worker_profiles as any)?.trust_tier ?? "bronze") as Application["worker_trust_tier"],
+    worker_name: nameMap.get(a.worker_id) ?? "Worker",
+    worker_trust_tier: (tierMap.get(a.worker_id) ?? "bronze") as Application["worker_trust_tier"],
   }));
 
   return {
