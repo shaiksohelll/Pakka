@@ -72,11 +72,21 @@ const VARIANT_MAP: Record<
 };
 
 type StatusBadgeProps = {
-  variant: StatusVariant;
+  variant: StatusVariant | null | undefined;
   className?: string;
 };
 
 export function StatusBadge({ variant, className }: StatusBadgeProps) {
+  if (variant == null) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("text-xs font-medium", "bg-gray-100 text-gray-400 border-gray-200", className)}
+      >
+        —
+      </Badge>
+    );
+  }
   const config = VARIANT_MAP[variant] ?? { label: variant, className: "bg-gray-100 text-gray-700" };
   return (
     <Badge

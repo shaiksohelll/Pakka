@@ -43,7 +43,7 @@ type Application = {
   status: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
   created_at: string;
   worker_name: string;
-  worker_trust_tier: "bronze" | "silver" | "gold";
+  worker_trust_tier: "bronze" | "silver" | "gold" | null;
 };
 
 type Job = {
@@ -89,35 +89,41 @@ async function fetchJobDetail(jobId: string) {
   if (matRes.error) throw matRes.error;
   if (appRes.error) throw appRes.error;
 
-  // Enrich applications with worker name + trust tier via two simple lookups
+  // Enrich applications with worker name + trust tier via SECURITY DEFINER RPC.
+  // Direct .from('profiles').in('id', workerIds) fails RLS — the client can only
+  // read their own profile row, so all other workers return empty and the
+  // fallback "Worker" / "bronze" fires for every card (ADR-0034).
   const workerIds = Array.from(new Set((appRes.data ?? []).map((a) => a.worker_id)));
 
-  const [profilesRes, workerProfilesRes] =
-    workerIds.length === 0
-      ? [{ data: [] as { id: string; full_name: string | null }[], error: null },
-      { data: [] as { profile_id: string; trust_tier: "bronze" | "silver" | "gold" }[], error: null }]
-      : await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", workerIds),
-        supabase.from("worker_profiles").select("profile_id, trust_tier").in("profile_id", workerIds),
-      ]);
+  type WorkerSummary = { id: string; full_name: string | null; trust_tier: string | null };
+  let workerSummaryMap = new Map<string, WorkerSummary>();
 
-  if (profilesRes.error) throw profilesRes.error;
-  if (workerProfilesRes.error) throw workerProfilesRes.error;
+  if (workerIds.length > 0) {
+    const { data: workerSummaries, error: wsErr } = await supabase.rpc(
+      'get_application_worker_summary',
+      { worker_ids: workerIds },
+    );
+    if (wsErr) throw wsErr;
+    workerSummaryMap = new Map(
+      (workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]),
+    );
+  }
 
-  const nameMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name ?? "Worker"]));
-  const tierMap = new Map((workerProfilesRes.data ?? []).map((w) => [w.profile_id, w.trust_tier]));
-
-  const applications: Application[] = (appRes.data ?? []).map((a) => ({
-    id: a.id,
-    worker_id: a.worker_id,
-    bid_amount: Number(a.bid_amount),
-    eta_days: a.eta_days,
-    message: a.message,
-    status: a.status as Application["status"],
-    created_at: a.created_at,
-    worker_name: nameMap.get(a.worker_id) ?? "Worker",
-    worker_trust_tier: (tierMap.get(a.worker_id) ?? "bronze") as Application["worker_trust_tier"],
-  }));
+  const applications: Application[] = (appRes.data ?? []).map((a) => {
+    const ws = workerSummaryMap.get(a.worker_id);
+    return {
+      id: a.id,
+      worker_id: a.worker_id,
+      bid_amount: Number(a.bid_amount),
+      eta_days: a.eta_days,
+      message: a.message,
+      status: a.status as Application["status"],
+      created_at: a.created_at,
+      // Fallbacks only fire for the "row not yet propagated" edge case
+      worker_name: ws?.full_name ?? "Worker",
+      worker_trust_tier: (ws?.trust_tier ?? null) as Application["worker_trust_tier"],
+    };
+  });
 
   return {
     job: {
@@ -174,7 +180,9 @@ export function ClientJobDetail() {
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[job-applications-realtime] client', status, err ?? '');
+      });
 
     return () => {
       supabase.removeChannel(channel);

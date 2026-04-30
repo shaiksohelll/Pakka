@@ -125,7 +125,9 @@ export function WorkerMilestones({
           });
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[milestones-realtime] worker', status, err ?? '');
+      });
 
     return () => {
       supabase.removeChannel(channel);

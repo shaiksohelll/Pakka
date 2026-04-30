@@ -153,7 +153,9 @@ export function ClientMilestones() {
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('[milestones-realtime] client', status, err ?? '');
+      });
 
     return () => {
       supabase.removeChannel(channel);
