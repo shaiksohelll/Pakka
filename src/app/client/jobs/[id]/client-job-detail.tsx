@@ -103,10 +103,14 @@ async function fetchJobDetail(jobId: string) {
       'get_application_worker_summary',
       { worker_ids: workerIds },
     );
-    if (wsErr) throw wsErr;
-    workerSummaryMap = new Map(
-      (workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]),
-    );
+    if (wsErr) {
+      console.error('[client-job-detail] worker-summary RPC error:', wsErr);
+      // Degrade gracefully: leave workerSummaryMap empty, cards render fallback names/trust tiers.
+    } else {
+      workerSummaryMap = new Map(
+        (workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]),
+      );
+    }
   }
 
   const applications: Application[] = (appRes.data ?? []).map((a) => {
