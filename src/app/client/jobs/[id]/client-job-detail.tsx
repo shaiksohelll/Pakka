@@ -182,8 +182,9 @@ export function ClientJobDetail() {
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
 
           // Enrich toast with worker name; failure is non-fatal.
-          supabase
-            .rpc("get_application_worker_summary", { worker_ids: [workerId] })
+          Promise.resolve(
+            supabase.rpc("get_application_worker_summary", { worker_ids: [workerId] }),
+          )
             .then(({ data, error }) => {
               if (error) {
                 console.error("[job-applications-realtime] RPC error:", error);
@@ -192,6 +193,10 @@ export function ClientJobDetail() {
               }
               const name = data?.[0]?.full_name ?? "Someone";
               toast.info(`${name} just applied!`);
+            })
+            .catch((err: unknown) => {
+              console.error("[job-applications-realtime] RPC rejected:", err);
+              toast.info("Someone just applied!");
             });
         },
       )
