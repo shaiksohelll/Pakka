@@ -169,14 +169,17 @@ export function ClientJobDetail() {
           filter: `job_id=eq.${jobId}`,
         },
         async (payload) => {
-          // Fetch worker name for the toast
-          const { data: workerData } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", (payload.new as { worker_id: string }).worker_id)
-            .single();
+          // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
+          // blocked by RLS for any non-self row, always returning null and
+          // falling back to the literal "a worker" in the toast. ADR-0034.
+          const workerId = (payload.new as { worker_id: string }).worker_id;
+          const { data: summaryData } = await supabase.rpc(
+            "get_application_worker_summary",
+            { worker_ids: [workerId] },
+          );
+          const name = summaryData?.[0]?.full_name ?? "Someone";
 
-          toast.info(`New application from ${workerData?.full_name ?? "a worker"}!`);
+          toast.info(`${name} just applied!`);
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
