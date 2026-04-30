@@ -173,10 +173,13 @@ export function ClientJobDetail() {
           // blocked by RLS for any non-self row, always returning null and
           // falling back to the literal "a worker" in the toast. ADR-0034.
           const workerId = (payload.new as { worker_id: string }).worker_id;
-          const { data: summaryData } = await supabase.rpc(
+          const { data: summaryData, error: rpcErr } = await supabase.rpc(
             "get_application_worker_summary",
             { worker_ids: [workerId] },
           );
+          if (rpcErr) {
+            console.error("[job-applications-realtime] RPC error:", rpcErr);
+          }
           const name = summaryData?.[0]?.full_name ?? "Someone";
 
           toast.info(`${name} just applied!`);
