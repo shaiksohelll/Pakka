@@ -17,8 +17,9 @@ export function ClientNavShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Page content — add bottom padding so nothing hides behind the nav */}
-      <div className="pb-16">{children}</div>
+      {/* Page content — pb-20 (80 px) guarantees clearance above the 56 px nav bar,
+          including on pages that also render their own fixed bottom CTA. */}
+      <div className="pb-20">{children}</div>
 
       {/* ── Sticky bottom tab bar ── */}
       <nav
