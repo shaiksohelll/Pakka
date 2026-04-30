@@ -130,7 +130,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
 
   return (
     <>
-      <div className="space-y-6 pb-28">
+      <div className="space-y-6 pb-36">
         {/* Header */}
         <section className="space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -228,7 +228,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
 
       {/* Sticky apply CTA */}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
+        <div className="fixed inset-x-0 bottom-14 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
           {data.hasApplied ? (
             <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 py-3 text-sm font-medium text-emerald-700">
               <CheckCircle2 className="h-4 w-4" />
