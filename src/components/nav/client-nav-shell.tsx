@@ -30,11 +30,17 @@ export function ClientNavShell({ children }: { children: React.ReactNode }) {
       >
         <ul className="flex h-14 items-stretch">
           {TABS.map(({ label, href, Icon }) => {
-            // "Post" tab: only exact match so /client/jobs/new is active, not all /client/jobs/*
+            // Active-tab rules — exactly ONE tab should be current per route:
+            //  /client/jobs/new  → Post only (exact match)
+            //  /client/jobs/**   → My Jobs (prefix, but NOT /client/jobs/new)
+            //  everything else   → exact or prefix of the tab's own href
             const active =
               href === "/client/jobs/new"
                 ? pathname === href
-                : pathname === href || pathname.startsWith(href + "/");
+                : href === "/client/jobs"
+                  ? (pathname === href || pathname.startsWith(href + "/")) &&
+                    !pathname.startsWith("/client/jobs/new")
+                  : pathname === href || pathname.startsWith(href + "/");
             return (
               <li key={href} className="flex-1">
                 <Link
@@ -46,7 +52,7 @@ export function ClientNavShell({ children }: { children: React.ReactNode }) {
                     "rounded-md text-xs font-medium transition-opacity duration-150",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                     "hover:opacity-80",
-                    "@media (prefers-reduced-motion: reduce) transition-none",
+                    "motion-reduce:transition-none",
                     active
                       ? "text-emerald-500"
                       : "text-neutral-500",

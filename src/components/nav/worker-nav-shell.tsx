@@ -30,7 +30,16 @@ export function WorkerNavShell({ children }: { children: React.ReactNode }) {
       >
         <ul className="flex h-14 items-stretch">
           {TABS.map(({ label, href, Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+            // Active-tab rules — exactly ONE tab should be current per route.
+            // "My Jobs" covers both /worker/applications (the list) and
+            // /worker/jobs/[id]/** (detail + milestones), since those are the
+            // same conceptual surface from the worker's perspective.
+            const active =
+              href === "/worker/applications"
+                ? pathname === href ||
+                  pathname.startsWith(href + "/") ||
+                  pathname.startsWith("/worker/jobs/")
+                : pathname === href || pathname.startsWith(href + "/");
             return (
               <li key={href} className="flex-1">
                 <Link
@@ -42,7 +51,7 @@ export function WorkerNavShell({ children }: { children: React.ReactNode }) {
                     "rounded-md text-xs font-medium transition-opacity duration-150",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                     "hover:opacity-80",
-                    "@media (prefers-reduced-motion: reduce) transition-none",
+                    "motion-reduce:transition-none",
                     active
                       ? "text-emerald-500"
                       : "text-neutral-500",
