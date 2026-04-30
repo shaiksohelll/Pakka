@@ -172,22 +172,27 @@ export function ClientJobDetail() {
           table: "job_applications",
           filter: `job_id=eq.${jobId}`,
         },
-        async (payload) => {
+        (payload) => {
           // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
           // blocked by RLS for any non-self row, always returning null and
           // falling back to the literal "a worker" in the toast. ADR-0034.
           const workerId = (payload.new as { worker_id: string }).worker_id;
-          const { data: summaryData, error: rpcErr } = await supabase.rpc(
-            "get_application_worker_summary",
-            { worker_ids: [workerId] },
-          );
-          if (rpcErr) {
-            console.error("[job-applications-realtime] RPC error:", rpcErr);
-          }
-          const name = summaryData?.[0]?.full_name ?? "Someone";
 
-          toast.info(`${name} just applied!`);
+          // Trigger refresh immediately — DO NOT gate on RPC.
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+
+          // Enrich toast with worker name; failure is non-fatal.
+          supabase
+            .rpc("get_application_worker_summary", { worker_ids: [workerId] })
+            .then(({ data, error }) => {
+              if (error) {
+                console.error("[job-applications-realtime] RPC error:", error);
+                toast.info("Someone just applied!");
+                return;
+              }
+              const name = data?.[0]?.full_name ?? "Someone";
+              toast.info(`${name} just applied!`);
+            });
         },
       )
       .subscribe((status, err) => {
