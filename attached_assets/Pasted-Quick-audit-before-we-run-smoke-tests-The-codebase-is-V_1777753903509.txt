@@ -1,0 +1,36 @@
+Quick audit before we run smoke tests. The codebase is Vite + wouter, but Sprint 1 was originally written assuming Next.js 15 App Router. I need to know what you actually produced.
+
+Answer each separately, do not modify anything yet:
+
+1. Run `pnpm typecheck` and paste the FULL output. If it's clean, say "0 errors". If anything is red, list every error with file and line.
+
+2. Run `pnpm lint` and paste the full output.
+
+3. Grep src/ for these Next.js-only patterns and report every match (file + line):
+   - "from 'next/navigation'" or "from \"next/navigation\""
+   - "from 'next/link'" or "from \"next/link\""
+   - "from 'next/router'"
+   - "use server" directive (as a string at top of file)
+   - usePathname, useRouter (the Next.js versions)
+   - process.env.NEXT_PUBLIC_
+
+4. List every file you created or modified during Sprint 1. One line each with what changed.
+
+5. The nav-shell work specifically:
+   - Did you create src/components/nav/worker-nav-shell.tsx and client-nav-shell.tsx? Quote the imports section of each.
+   - How did you wire them into the app? Quote the parent code that renders them. (In Vite + wouter this should be inside an existing layout component or the router config — NOT a Next.js layout.tsx file.)
+
+6. The /worker/jobs redirect (ADR-0036):
+   - Did you create a Next.js-style src/app/worker/jobs/page.tsx file with `redirect('...')` from 'next/navigation'?
+   - OR did you add a wouter <Route> with <Redirect to="/worker/applications"/> in the router config?
+   - Quote the actual implementation.
+
+7. ADR audit. Confirm these three migrations and code changes match what's actually in the repo:
+   - 202605020001_realtime_replica_identity_apps.sql exists and matches the Sprint 1 spec
+   - 202605020002_application_worker_summary.sql exists and matches
+   - client-job-detail.tsx (or equivalent) calls supabase.rpc('get_application_worker_summary', { worker_ids }) — quote the call
+   - Every .on('postgres_changes', ...) site uses string filters, removeChannel cleanup, and status logging
+
+8. ADR docs: confirm docs/adr/0034-*, 0036-*, 0037-* exist with Status: Proposed.
+
+Report findings only. Do not change any files. If something is wrong, we'll discuss the fix together.
