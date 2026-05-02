@@ -42,7 +42,7 @@ const PUBLIC_PATHS = ["/", "/login", "/login/verify"];
 const ONBOARDING_PATHS = ["/onboarding/role", "/onboarding/client", "/onboarding/worker"];
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [authState, setAuthState] = useState<"loading" | "authed" | "anon">("loading");
 
   useEffect(() => {
@@ -70,8 +70,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const isPublic = PUBLIC_PATHS.includes(location) || ONBOARDING_PATHS.includes(location);
 
   if (authState === "anon" && !isPublic) {
-    navigate("/login");
-    return null;
+    return <Redirect to="/login" />;
   }
 
   return <>{children}</>;
