@@ -173,6 +173,10 @@ function Router() {
         <Route path="/worker/applications" component={WorkerApplicationsPage} />
         <Route path="/worker/jobs/:id/milestones" component={WorkerMilestonesPage} />
         <Route path="/worker/jobs/:id" component={WorkerJobDetailPage} />
+        {/* ADR-0036: /worker/jobs (no :id) was a 404 — redirect to Applications tab */}
+        <Route path="/worker/jobs">
+          {() => <Redirect to="/worker/applications" />}
+        </Route>
         <Route path="/worker/wallet" component={WorkerWalletPage} />
         <Route path="/worker/kyc-pending" component={WorkerKycPendingPage} />
 

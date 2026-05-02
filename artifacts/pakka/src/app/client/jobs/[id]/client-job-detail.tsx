@@ -39,8 +39,10 @@ type Application = {
   message: string | null;
   status: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
   created_at: string;
-  worker_name: string;
-  worker_trust_tier: "bronze" | "silver" | "gold";
+  // ADR-0034: null when the SECURITY DEFINER RPC returns no row for this worker
+  // (e.g. no active application with the calling client). Never "Worker"/Bronze default.
+  worker_name: string | null;
+  worker_trust_tier: "bronze" | "silver" | "gold" | null;
 };
 
 type Job = {
@@ -87,20 +89,26 @@ async function fetchJobDetail(jobId: string) {
 
   const workerIds = Array.from(new Set((appRes.data ?? []).map((a) => a.worker_id)));
 
-  const [profilesRes, workerProfilesRes] =
+  // ADR-0034: use the SECURITY DEFINER RPC instead of plain .from('profiles').in(...)
+  // which is RLS-empty for a client session (profiles RLS is self-read only).
+  // ADR-0032: always check .error — never silently default to [].
+  type WorkerSummary = { id: string; full_name: string | null; trust_tier: string | null };
+
+  const summaryResult =
     workerIds.length === 0
-      ? [{ data: [] as { id: string; full_name: string | null }[], error: null },
-      { data: [] as { profile_id: string; trust_tier: "bronze" | "silver" | "gold" }[], error: null }]
-      : await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", workerIds),
-        supabase.from("worker_profiles").select("profile_id, trust_tier").in("profile_id", workerIds),
-      ]);
+      ? { data: [] as WorkerSummary[], error: null }
+      : await supabase.rpc("get_application_worker_summary", { worker_ids: workerIds });
 
-  if (profilesRes.error) throw profilesRes.error;
-  if (workerProfilesRes.error) throw workerProfilesRes.error;
+  if (summaryResult.error) throw summaryResult.error;
 
-  const nameMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name ?? "Worker"]));
-  const tierMap = new Map((workerProfilesRes.data ?? []).map((w) => [w.profile_id, w.trust_tier]));
+  const workerSummaries: WorkerSummary[] = (summaryResult.data ?? []) as WorkerSummary[];
+
+  const nameMap = new Map(
+    workerSummaries.map((w) => [w.id, w.full_name ?? null]),
+  );
+  const tierMap = new Map(
+    workerSummaries.map((w) => [w.id, w.trust_tier ?? null]),
+  );
 
   const applications: Application[] = (appRes.data ?? []).map((a) => ({
     id: a.id,
@@ -110,8 +118,8 @@ async function fetchJobDetail(jobId: string) {
     message: a.message,
     status: a.status as Application["status"],
     created_at: a.created_at,
-    worker_name: nameMap.get(a.worker_id) ?? "Worker",
-    worker_trust_tier: (tierMap.get(a.worker_id) ?? "bronze") as Application["worker_trust_tier"],
+    worker_name: nameMap.get(a.worker_id) ?? null,
+    worker_trust_tier: (tierMap.get(a.worker_id) ?? null) as Application["worker_trust_tier"],
   }));
 
   return {
@@ -145,6 +153,9 @@ export function ClientJobDetail() {
     queryFn: () => fetchJobDetail(jobId),
   });
 
+  // ADR-0037: Realtime subscription for new applications (INSERT) and status
+  // changes (UPDATE) on this job. H3: filter is a string, not an object literal.
+  // H4: removeChannel in cleanup, status callback to verify SUBSCRIBED.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -158,17 +169,30 @@ export function ClientJobDetail() {
           filter: `job_id=eq.${jobId}`,
         },
         async (payload) => {
-          const { data: workerData } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", (payload.new as { worker_id: string }).worker_id)
-            .single();
-
-          toast.info(`New application from ${workerData?.full_name ?? "a worker"}!`);
+          // Fetch the worker's display name for the toast via the RPC
+          const workerId = (payload.new as { worker_id: string }).worker_id;
+          const { data: summary } = await supabase.rpc(
+            "get_application_worker_summary",
+            { worker_ids: [workerId] },
+          );
+          const name = summary?.[0]?.full_name ?? "a worker";
+          toast.info(`New application from ${name}!`);
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
-      .subscribe();
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
+      .subscribe((status) => console.log("[job-applications]", status));
 
     return () => {
       supabase.removeChannel(channel);
@@ -319,8 +343,10 @@ export function ClientJobDetail() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold">{app.worker_name}</p>
+                    {/* ADR-0034: name is null when RPC returns no row — show "—" */}
+                    <p className="font-semibold">{app.worker_name ?? "—"}</p>
                     <div className="mt-0.5 flex items-center gap-2">
+                      {/* StatusBadge accepts null — renders "—" badge explicitly */}
                       <StatusBadge variant={app.worker_trust_tier} />
                       <StatusBadge variant={app.status} />
                     </div>

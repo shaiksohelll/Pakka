@@ -129,6 +129,9 @@ export function ClientMilestones() {
     queryFn: () => fetchMilestonesData(jobId),
   });
 
+  // ADR-0037: Realtime subscription for milestone status changes.
+  // H3: filter is a string literal — object form silently no-ops.
+  // H4: removeChannel in cleanup; status callback confirms SUBSCRIBED in DevTools.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -146,7 +149,7 @@ export function ClientMilestones() {
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
-      .subscribe();
+      .subscribe((status) => console.log("[client-milestones]", status));
 
     return () => {
       supabase.removeChannel(channel);

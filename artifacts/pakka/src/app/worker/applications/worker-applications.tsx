@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { FileText, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +30,8 @@ const STATUS_GROUPS: { label: string; statuses: AppStatus[] }[] = [
 ];
 
 export function WorkerApplications() {
+  const queryClient = useQueryClient();
+
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ["worker-applications"],
     staleTime: 10_000,
@@ -64,6 +67,39 @@ export function WorkerApplications() {
       })) satisfies WorkerApplication[];
     },
   });
+
+  // ADR-0037 Part 1.5: Realtime subscription for accept/reject decisions on this
+  // worker's applications. H3: filter is a string. H4: removeChannel + status log.
+  useEffect(() => {
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+
+      channel = supabase
+        .channel(`worker-applications-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "job_applications",
+            filter: `worker_id=eq.${user.id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["worker-applications"] });
+            // Also invalidate applied-jobs set so feed badges update
+            queryClient.invalidateQueries({ queryKey: ["worker-applied-jobs"] });
+          },
+        )
+        .subscribe((status) => console.log("[worker-applications]", status));
+    });
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   if (isLoading) return <ApplicationsSkeleton />;
   if (error) {

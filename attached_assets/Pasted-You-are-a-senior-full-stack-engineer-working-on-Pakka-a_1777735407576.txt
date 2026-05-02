@@ -1,0 +1,134 @@
+You are a senior full-stack engineer working on Pakka — a production-grade open-source escrow marketplace built on Next.js 15 + TypeScript + Tailwind v4 + shadcn/ui + Supabase. The financial state machine and RLS surface are already shipped and verified across two live smoke runs. Your job is to ship one cohesive commit that closes three queued ADRs (0034, 0036, 0037) AND completes a codebase-wide audit of every Supabase Realtime subscription site.
+
+Work on the branch `experiment/replit-agent-autonomous` (already created). At the end, run pnpm typecheck && pnpm lint && pnpm test — all must be green before you declare done.
+
+=== PART 1 — ADR-0037: Realtime fix, codebase-wide audit ===
+
+Symptom (broader than originally documented): Realtime UPDATE/INSERT events do not propagate to already-open opposite tabs. Three confirmed broken sites:
+  (a) /worker/feed — when a client posts a new job, it does NOT appear in worker's open feed without refresh.
+  (b) /client/jobs/[id] — when a worker applies, the application does NOT appear in client's open detail page without refresh.
+  (c) Both milestones pages — milestone status UPDATEs do not propagate either direction (worker submit → client tab; client approve → worker tab).
+
+Migration 202604300002_realtime_replica_identity.sql (REPLICA IDENTITY FULL on milestones / wallets / escrow_ledger) was shipped but did not fix the bug — confirming the root cause is on the client/JS layer, not the Postgres layer. Apply ALL FOUR hypotheses simultaneously and audit EVERY .on('postgres_changes') site in the codebase, not just the milestones pages.
+
+(H2 — setAuth, the most likely root cause) In src/lib/supabase/client.ts:
+  - After signInWithOtp / verifyOtp resolves, call `supabase.realtime.setAuth(session.access_token)`.
+  - Register an `onAuthStateChange` listener AT MODULE INIT (only once — not inside a hook) that re-calls setAuth whenever a new session arrives.
+  - Without this, every channel auths with the anon key, the realtime server evaluates SELECT policies against the wrong JWT, and silently drops the broadcast.
+
+(H3 — filter syntax audit) Grep the entire src/ tree for `.on('postgres_changes'`. Every match must pass `filter` as a STRING (e.g. ``filter: `job_id=eq.${jobId}` ``), never as an object literal. Object-form filters are accepted by TypeScript types but silently no-op at runtime. Report every site you find and confirm fixed.
+
+(H4 — channel cleanup audit) Same grep targets. Every useEffect cleanup that does `channel.unsubscribe()` must be replaced with `supabase.removeChannel(channel)`. Every `.subscribe()` call must be chained with a status callback: `.subscribe((status) => console.log('[<channel-name>]', status))` so DevTools verifies the subscription reaches SUBSCRIBED.
+
+=== PART 1.5 — Add the missing realtime subscriptions ===
+
+The following sites currently lack realtime subscriptions and must get them now (otherwise H2/H3/H4 do not solve the symptom):
+
+  - src/app/worker/feed/page.tsx (or wherever the worker browse list lives) — subscribe to INSERT events on public.jobs, scoped to status='open' if such a filter is meaningful. New job appears in the list as it's inserted.
+  - src/app/client/jobs/[id]/client-job-detail.tsx (or sibling) — subscribe to INSERT and UPDATE on public.job_applications filtered by `job_id=eq.${jobId}`. New applications and status changes appear without refresh.
+  - src/app/worker/applications/page.tsx — subscribe to UPDATE on public.job_applications filtered by `worker_id=eq.${userId}` so accept/reject decisions surface immediately.
+  - Both milestones pages (already known) — fix the existing subscription per H2/H3/H4.
+
+For each new subscription, follow the same pattern: setAuth-aware client, string filter, removeChannel cleanup, status logging, refetch the relevant query when the event fires (use react-query invalidateQueries or your existing pattern — DO NOT reach into local state and mutate; refetch is safer).
+
+=== PART 1.75 — Extended REPLICA IDENTITY migration ===
+
+Create supabase/migrations/202605020001_realtime_replica_identity_apps.sql:
+
+  ALTER TABLE public.job_applications REPLICA IDENTITY FULL;
+  ALTER TABLE public.jobs REPLICA IDENTITY FULL;
+  ALTER TABLE public.notifications REPLICA IDENTITY FULL;
+  ALTER TABLE public.disputes REPLICA IDENTITY FULL;
+
+  DO $$ BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE
+      public.job_applications,
+      public.jobs,
+      public.notifications,
+      public.disputes;
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+  END $$;
+
+=== PART 2 — ADR-0036: Persistent nav shell + /worker/jobs 404 redirect + back-button audit ===
+
+Symptom: workers and clients have no persistent navigation. Workers landing on /worker/feed cannot reach /worker/applications or /worker/wallet without typing URLs. Hitting /worker/jobs directly returns 404 because the route does not exist.
+
+Create src/components/nav/worker-nav-shell.tsx — a sticky bottom nav (`fixed bottom-0 inset-x-0 z-50 h-14 bg-white border-t`) with three tabs:
+  - Browse → /worker/feed (lucide Search icon)
+  - My Jobs → /worker/applications (lucide Briefcase icon)
+  - Wallet → /worker/wallet (lucide Wallet icon)
+Active tab uses brand emerald (#10B981) for icon + label. Inactive tabs use neutral-500. Use Next.js `usePathname` for active detection. Mark the file `'use client'`.
+
+Create src/components/nav/client-nav-shell.tsx — same shape, three tabs:
+  - My Jobs → /client/jobs (lucide Briefcase)
+  - Post → /client/jobs/new (lucide Plus)
+  - Wallet → /client/wallet (lucide Wallet)
+
+Create or edit src/app/worker/layout.tsx and src/app/client/layout.tsx (server components) that wrap children in `<div className="min-h-screen pb-14">` and render the appropriate nav shell at the bottom.
+
+Create src/app/worker/jobs/page.tsx (4-line file):
+  import { redirect } from 'next/navigation';
+  export default function WorkerJobsRedirect() { redirect('/worker/applications'); }
+
+Grep src/app/worker/jobs/[id]/** for any `<Link href="/worker/jobs">` or `router.push('/worker/jobs')` and repoint to /worker/applications.
+
+ADR-0043 enforcement: grep `fixed inset-x-0 bottom-0` across src/app/client/** and src/app/worker/**. Any sticky CTA inside a nav-shell route group MUST use `bottom-14` and pad its scrollable container with `pb-36`. Audit the post-job form CTA in particular.
+
+=== PART 3 — ADR-0034: get_application_worker_summary RPC + client-job-detail enrichment swap ===
+
+Symptom: on /client/jobs/[id], application cards render the worker's name as the literal string "Worker" and the trust tier as "Bronze". Root cause: the client session's `.from('profiles').in('id', workerIds)` lookup is RLS-empty (profiles RLS only allows self-read).
+
+Create supabase/migrations/202605020002_application_worker_summary.sql:
+
+  CREATE OR REPLACE FUNCTION public.get_application_worker_summary(
+    worker_ids uuid[]
+  )
+  RETURNS TABLE (
+    id uuid, full_name text, trust_tier public.trust_tier,
+    rating numeric, jobs_completed integer
+  )
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+  AS $$
+  BEGIN
+    RETURN QUERY
+    SELECT DISTINCT p.id, p.full_name, wp.trust_tier, wp.rating, wp.jobs_completed
+    FROM public.profiles p
+    LEFT JOIN public.worker_profiles wp ON wp.profile_id = p.id
+    WHERE p.id = ANY(worker_ids)
+      AND EXISTS (
+        SELECT 1 FROM public.job_applications ja
+        JOIN public.jobs j ON j.id = ja.job_id
+        WHERE ja.worker_id = p.id
+          AND j.client_id = auth.uid()
+          AND ja.status <> 'rejected'
+      );
+  END;
+  $$;
+  GRANT EXECUTE ON FUNCTION public.get_application_worker_summary(uuid[]) TO authenticated;
+
+Update src/app/client/jobs/[id]/client-job-detail.tsx: replace the two `.in('id', workerIds)` enrichment calls with one `supabase.rpc('get_application_worker_summary', { worker_ids: workerIds })`. Per ADR-0032, check `.error` and throw — never silently default to []. Update src/components/ui/status-badge.tsx (or equivalent) so a null/undefined trust_tier renders an explicit `—` placeholder, not a silent Bronze default.
+
+=== PART 4 — ADR documents ===
+
+Create docs/adr/0034-worker-summary-rpc.md, docs/adr/0036-persistent-nav-shell.md, docs/adr/0037-realtime-subscription-contract.md following the existing ADR template (Title / Status / Context / Decision / Consequences). Status = "Proposed". Each ~40-60 lines.
+
+=== PART 5 — Verify before declaring done ===
+
+  1. pnpm typecheck → 0 errors
+  2. pnpm lint → 0 errors
+  3. pnpm test → all passing
+  4. List every file created or modified with a one-line description
+  5. Print the grep results from PART 1 H3/H4 audit so I can confirm completeness
+
+Do NOT commit or push — I will review the diff and commit manually.
+
+=== Out of scope for this sprint ===
+  - Use My Location bug (Sprint 2)
+  - City/area sequential autocomplete (Sprint 2)
+  - Wallet top-up/withdrawal mock screens (Sprint 3)
+  - Auto-release Edge Function deploy (Sprint 3)
+  - Phase 5 work (materials, disputes, admin)
+  - Any change to existing SECURITY DEFINER escrow functions (fund_escrow / submit_milestone / approve_milestone / dispute_milestone / admin_force_release / admin_refund / auto_release_milestones) — financial core stays untouched
+
+One PR, one focus. If you find unrelated bugs, log them as TODO comments and report at the end.

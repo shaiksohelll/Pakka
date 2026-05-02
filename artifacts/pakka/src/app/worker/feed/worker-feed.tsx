@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { MapPin, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -74,6 +74,7 @@ async function fetchFeedPage({
 export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | "rejected" }) {
   const [selectedCategories, setSelectedCategories] = useState<JobCategory[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
+  const queryClient = useQueryClient();
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
     queryKey: ["worker-applied-jobs"],
@@ -103,6 +104,33 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
       initialPageParam: 0,
       getNextPageParam: (lastPage) => lastPage.nextPage,
     });
+
+  // ADR-0037 Part 1.5: Realtime subscription for new open jobs.
+  // H3: filter string literal (status=eq.open). H4: removeChannel + status log.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("worker-feed-jobs")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "jobs",
+          filter: "status=eq.open",
+        },
+        () => {
+          // Invalidate all feed variants so the new job appears regardless of
+          // current filter/sort state. exact:false matches any queryKey starting with ["worker-feed"].
+          queryClient.invalidateQueries({ queryKey: ["worker-feed"], exact: false });
+        },
+      )
+      .subscribe((status) => console.log("[worker-feed-jobs]", status));
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback(

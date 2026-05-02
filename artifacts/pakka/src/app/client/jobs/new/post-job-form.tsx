@@ -157,7 +157,7 @@ export function PostJobForm() {
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4 pb-28">
+      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4 pb-36">
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-primary">Job Basics</h2>
@@ -594,7 +594,8 @@ export function PostJobForm() {
         )}
       </form>
 
-      <div className="fixed bottom-0 inset-x-0 max-w-[640px] mx-auto border-t bg-background/95 px-4 py-4 backdrop-blur z-10">
+      {/* ADR-0043: bottom-14 so CTA sits above the 56 px BottomNav bar */}
+      <div className="fixed bottom-14 inset-x-0 max-w-[640px] mx-auto border-t bg-background/95 px-4 py-4 backdrop-blur z-10">
         <div className="flex gap-3">
           {step > 1 && (
             <Button type="button" variant="outline" className="flex-1 gap-1.5" onClick={goPrev}>

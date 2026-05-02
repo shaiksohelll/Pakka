@@ -72,11 +72,23 @@ const VARIANT_MAP: Record<
 };
 
 type StatusBadgeProps = {
-  variant: StatusVariant;
+  // ADR-0034: accept null/undefined so counterparty RPC lookups that return no
+  // row render an explicit "—" instead of silently defaulting to Bronze.
+  variant: StatusVariant | null | undefined;
   className?: string;
 };
 
 export function StatusBadge({ variant, className }: StatusBadgeProps) {
+  if (variant == null) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("text-xs font-medium text-muted-foreground", className)}
+      >
+        —
+      </Badge>
+    );
+  }
   const config = VARIANT_MAP[variant] ?? { label: variant, className: "bg-gray-100 text-gray-700" };
   return (
     <Badge
