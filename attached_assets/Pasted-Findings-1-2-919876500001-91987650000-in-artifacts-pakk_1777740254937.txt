@@ -1,0 +1,68 @@
+Findings
+1 & 2 — 919876500001 / 91987650000* in artifacts/pakka/
+Zero matches. These numbers exist nowhere inside artifacts/pakka/src/ or artifacts/pakka/supabase/. The seed data was never migrated out of .migration-backup/.
+
+3 — Where the seed data lives
+Two files in .migration-backup/, neither copied to artifacts/pakka/:
+
+File	Type	Auth method
+.migration-backup/supabase/seed.sql	Old email-based seed	email + password (client1@pakka.test)
+.migration-backup/scripts/seed-demo-users.ts	Current canonical seed	phone OTP, uses admin API
+The old seed.sql does not contain +919876500001 at all — it uses a completely different phone number series (+919900000001…) and email-based auth. It is superseded and should be ignored.
+
+The canonical seed is seed-demo-users.ts. Its user roster is:
+
+Phone	Name	Role	KYC	Trust
++919876500001	Priya Sharma	client	—	—
++919876500002	Rohit Mehta	client	—	—
++919876500003	Anjali Reddy	client	—	—
++919876500011	Ravi Kumar	worker	verified	gold
++919876500012	Suresh Patel	worker	verified	silver
++919876500013	Manoj Yadav	worker	verified	bronze
++919876500014	Deepak Singh	worker	pending	bronze
++919876500015	Arjun Nair	worker	rejected	bronze
++919876500099	Demo Admin	admin	—	—
+So "Aarav" does not exist in the seed. +919876500001 is Priya (client). The worker named Ravi is at +919876500011, not +919876500002.
+
+The script creates each user via supabase.auth.admin.createUser({ phone, phone_confirm: true }) — the phone_confirm: true marks the phone as pre-verified in auth.users, skipping the initial SMS confirmation. It then inserts matching rows in public.profiles, public.worker_profiles, and sets wallets.available_balance.
+
+4 — OTP bypass audit
+No bypass exists in application code. The only 123456 reference is the dead DemoModeBanner component (never imported, wrong env prefix — covered in the previous message).
+
+The seed script prints at line 482:
+
+OTP for all demo numbers: 123456 (DEMO_MODE=true)
+
+This is just a console.log. The actual 123456 OTP works only if you configure those phone numbers as Supabase test phone numbers in the dashboard (Auth → Settings → SMS → Test OTP numbers). That is a Supabase-project-level config, not something in this codebase.
+
+5 — Answers to your three questions
+(a) Do the seed users exist in seed SQL?
+No. artifacts/pakka/supabase/ only has the two migrations written this sprint. The seed script lives in .migration-backup/scripts/seed-demo-users.ts and has never been run against your Supabase project.
+
+(b) Is there a hardcoded OTP bypass for them?
+No. There is no code-level bypass anywhere in the auth flow.
+
+(c) Where does OTP verification happen if you need to add a bypass?
+
+artifacts/pakka/src/app/login/actions.ts, lines 61–65:
+
+const { error: verifyError } = await supabase.auth.verifyOtp({
+  phone,
+  token: parsed.data.otp,
+  type: "sms",
+});
+
+That is the single gate. A dev-mode bypass would go here — e.g.:
+
+const isDev = import.meta.env.DEV;
+const isSeedPhone = phone.startsWith("+9198765000");
+if (isDev && isSeedPhone && parsed.data.otp === "123456") {
+  // skip verifyOtp, fall through to role redirect
+}
+
+What needs to happen before you can log in
+Run the seed script against your Supabase project to create the auth users (or add them manually via the dashboard). The script needs to be migrated to artifacts/pakka/scripts/seed-demo-users.ts with NEXT_PUBLIC_SUPABASE_URL → VITE_SUPABASE_URL (the URL) and a SUPABASE_SERVICE_ROLE_KEY secret.
+
+Either configure +919876500001 … +919876500015 as Supabase test phone numbers with OTP 123456 in the dashboard, or add a code-level dev bypass in actions.ts as shown above.
+
+Want me to (a) migrate the seed script to artifacts/pakka/scripts/, update the env var names, and add a pnpm seed script to package.json, and (b) add the dev OTP bypass in actions.ts?
