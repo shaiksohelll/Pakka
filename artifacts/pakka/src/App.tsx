@@ -28,6 +28,7 @@ import WorkerKycPendingPage from "@/app/worker/kyc-pending/page";
 
 import AdminPage from "@/app/admin/page";
 import NotFound from "@/pages/not-found";
+import { BottomNav } from "@/components/BottomNav";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -146,6 +147,7 @@ function Router() {
   return (
     <AuthGuard>
       <AppHeader />
+      <div className="pb-16">
       <Switch>
         <Route path="/" component={LandingPage} />
 
@@ -178,6 +180,8 @@ function Router() {
 
         <Route component={NotFound} />
       </Switch>
+      </div>
+      <BottomNav />
     </AuthGuard>
   );
 }
