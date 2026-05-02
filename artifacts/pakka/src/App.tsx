@@ -104,14 +104,32 @@ function LandingPage() {
 function AppHeader() {
   const [location, navigate] = useLocation();
   const [isAuthed, setIsAuthed] = useState(false);
+  const [homeUrl, setHomeUrl] = useState("/");
 
   useEffect(() => {
     const supabase = createClient();
+
+    async function resolveHome(userId: string) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .limit(1);
+      const role = (data as Array<{ role: string }> | null)?.[0]?.role;
+      if (role === "client") setHomeUrl("/client/jobs");
+      else if (role === "worker") setHomeUrl("/worker/feed");
+      else if (role === "admin") setHomeUrl("/admin");
+      else setHomeUrl("/");
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setIsAuthed(!!data.session);
+      if (data.session) void resolveHome(data.session.user.id);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setIsAuthed(!!session);
+      if (session) void resolveHome(session.user.id);
+      else setHomeUrl("/");
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -129,7 +147,12 @@ function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-12 max-w-[640px] items-center justify-between px-4">
-        <a href="/" className="text-lg font-bold text-primary">Pakka</a>
+        <button
+          onClick={() => navigate(homeUrl)}
+          className="text-lg font-bold text-primary"
+        >
+          Pakka
+        </button>
         {isAuthed && (
           <button
             onClick={handleSignOut}
