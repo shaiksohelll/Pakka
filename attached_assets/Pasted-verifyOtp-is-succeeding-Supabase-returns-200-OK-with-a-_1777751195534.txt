@@ -1,0 +1,24 @@
+verifyOtp is succeeding — Supabase returns 200 OK with a valid access_token, refresh_token, and user object. I confirmed this in DevTools Network tab. But the UI shows "Auth session missing!" immediately after, which is the literal error message Supabase throws from auth.getUser() when the client has no session in memory.
+
+Diagnose without changing files yet. Answer all of these:
+
+1. Grep src/ for every "createClient(" call (Supabase). List every match with file path and line. There should be exactly ONE for the browser-side client. If there are two or more, identify which file's client is used for verifyOtp and which is used for any subsequent getUser/getSession/route-guard call.
+
+2. Open src/lib/supabase/client.ts (or wherever the browser client is constructed). Quote the createClient call including its options object. Specifically confirm:
+   - persistSession is NOT set to false (default is true)
+   - autoRefreshToken is NOT set to false (default is true)
+   - storage is NOT set to a custom non-localStorage adapter that might be broken
+
+3. Grep for the exact string "Auth session missing" — find where it's thrown (Supabase source) vs where the app catches and displays it. Quote the catch site. What method call does the app make that throws this error?
+
+4. After verifyOtp resolves, what does the app do? Quote the code immediately following the verifyOtp call. Is it:
+   (a) calling supabase.auth.getUser() right after
+   (b) navigating to a protected route whose guard calls getUser()
+   (c) firing an onAuthStateChange that fetches the profile
+   (d) something else
+
+5. Is there a wouter route guard component (something like <ProtectedRoute> or <RequireAuth>) that wraps authenticated routes? If yes, quote it. How does it determine "logged in" — getUser(), getSession(), or reading from a context?
+
+6. Check if there's a TanStack Query / SWR / Zustand store / React context that holds the user. If so, where does it read from, and does it correctly update when onAuthStateChange fires SIGNED_IN?
+
+Do NOT modify anything. Report findings.
