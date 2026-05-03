@@ -1,6 +1,6 @@
 # ADR-0036: Persistent Bottom Navigation Shell
 
-**Status:** Accepted  
+**Status:** Proposed  
 **Date:** 2026-05-02  
 **Deciders:** Engineering
 

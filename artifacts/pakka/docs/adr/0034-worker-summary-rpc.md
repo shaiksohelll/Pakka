@@ -1,6 +1,6 @@
 # ADR-0034: Worker Summary RPC for Client Job Detail
 
-**Status:** Accepted  
+**Status:** Proposed  
 **Date:** 2026-05-02  
 **Deciders:** Engineering
 

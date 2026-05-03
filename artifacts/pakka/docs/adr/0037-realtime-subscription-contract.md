@@ -1,6 +1,6 @@
 # ADR-0037: Realtime Subscription Contract
 
-**Status:** Accepted  
+**Status:** Proposed  
 **Date:** 2026-05-02  
 **Deciders:** Engineering
 
