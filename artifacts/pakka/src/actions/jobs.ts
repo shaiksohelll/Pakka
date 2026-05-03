@@ -42,7 +42,7 @@ export async function createJob(payload: {
   category: string;
   budget: number;
   city: string;
-  area: string;
+  area?: string | null;
   lat?: number | null;
   lng?: number | null;
   client_id: string;
@@ -55,6 +55,8 @@ export async function createJob(payload: {
       description: payload.description,
       category: payload.category,
       budget: payload.budget,
+      city: payload.city,
+      area: payload.area ?? null,
       location_text,
       lat: payload.lat ?? null,
       lng: payload.lng ?? null,

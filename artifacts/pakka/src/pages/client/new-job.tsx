@@ -85,14 +85,13 @@ export default function NewJob() {
         toast.success("Location pinned!");
       })
       .catch((err: unknown) => {
-        if (err instanceof GeolocationPositionError) {
-          if (err.code === GeolocationPositionError.PERMISSION_DENIED) {
-            toast.error("Location permission denied. Please enter your location manually.");
-          } else {
-            toast.error("Couldn't determine your location. Please enter it manually.");
-          }
+        if (
+          err instanceof GeolocationPositionError &&
+          err.code === GeolocationPositionError.PERMISSION_DENIED
+        ) {
+          toast.error("Location permission denied. Enter manually.");
         } else {
-          toast.error("Location request timed out. Please enter your location manually.");
+          toast.error("Couldn't determine location. Enter manually.");
         }
       })
       .finally(() => setIsGeoLoading(false));

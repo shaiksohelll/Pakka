@@ -1,3 +1,5 @@
+import indianCitiesJson from "indian-cities-json";
+
 export const TIER1_CITIES = [
   "Mumbai",
   "Delhi",
@@ -80,3 +82,11 @@ export const CITY_AREAS: Record<Tier1City, string[]> = {
 export function isTier1City(city: string): city is Tier1City {
   return (TIER1_CITIES as readonly string[]).includes(city);
 }
+
+const _rawCities = (
+  indianCitiesJson as unknown as { cities: { name: string }[] }
+).cities ?? [];
+
+export const ALL_CITIES: string[] = Array.from(
+  new Set([...TIER1_CITIES, ..._rawCities.map((c) => c.name)])
+).sort();

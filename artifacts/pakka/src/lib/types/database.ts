@@ -28,6 +28,8 @@ export interface Job {
   description: string | null;
   category: string;
   budget: number;
+  city: string | null;
+  area: string | null;
   lat: number | null;
   lng: number | null;
   location_text: string | null;

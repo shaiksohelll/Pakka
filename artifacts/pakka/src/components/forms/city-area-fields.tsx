@@ -13,18 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { TIER1_CITIES, CITY_AREAS, isTier1City } from "@/data/india-areas";
+import { ALL_CITIES, TIER1_CITIES, CITY_AREAS, isTier1City } from "@/data/india-areas";
 import type { UseFormReturn, FieldValues, Path } from "react-hook-form";
-
-import indianCitiesJson from "indian-cities-json";
-
-const _cities = (
-  indianCitiesJson as unknown as { cities: { name: string }[] }
-).cities ?? [];
-
-const ALL_CITIES: string[] = Array.from(
-  new Set([...TIER1_CITIES, ..._cities.map((c) => c.name)])
-).sort();
 
 interface CityAreaFieldsProps<T extends FieldValues> {
   form: UseFormReturn<T>;
@@ -176,7 +166,7 @@ export function CityAreaFields<T extends FieldValues>({
         )}
         {!tier1 && city && (
           <p className="text-xs text-muted-foreground">
-            Type your local area or neighbourhood name.
+            Locality autocomplete unavailable for this city — type your area name.
           </p>
         )}
         {areaError && (

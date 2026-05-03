@@ -1,0 +1,25 @@
+Three clarifications and a focused fix list.
+
+(1) Sprint 1 regression items (/worker/jobs redirect, realtime subscriptions) are NOT regressions. We branched Sprint 2 from origin/main, not from the Sprint 1 experiment branch — so those features were never on this branch. They're preserved on experiment/replit-agent-autonomous on GitHub. Stop checking for them, they're not in scope here.
+
+(2) The component API mismatch (form-coupled vs onChange) is acceptable as-is. Skip refactoring it.
+
+(3) The non-Tier-1 area falling back to plain <Input> is correct UX even though the spec wording said "both combobox". Skip changing it.
+
+Now fix THIS list, in this exact order, and report back when done. Do NOT add new features (no notification badges, no extras). Do NOT check Sprint 1 items. Just fix:
+
+A) Apply migration 202605020003_jobs_city_area_split.sql against the linked Supabase project (or print the exact SQL I should paste into Studio if your CLI access is limited).
+
+B) Update createJob action and src/lib/database.ts Job type to write/read the new `city` and `area` columns. The form's CityAreaFields gives you `city` and `area` separately — make sure they land in those columns, not in location_text. If location_text is still being written redundantly for backwards compatibility, that's fine, but `city` and `area` MUST be populated on insert.
+
+C) Update the Zod schema in new-job.tsx (or wherever the form schema is defined):
+   - `city: z.string().refine((v) => ALL_CITIES.includes(v), { message: "Please select a city from the list" })` (import ALL_CITIES from city-area-fields or wherever it's exported)
+   - `area: z.string().optional()` at the schema base, then use `.superRefine` or a `.refine` to require area when city is in TIER_1_CITIES (with message like "Area is required for this city")
+
+D) Fix three geolocation error messages in new-job.tsx to match spec exactly:
+   - PERMISSION_DENIED (code 1): "Location permission denied. Enter manually."
+   - POSITION_UNAVAILABLE (code 2) AND TIMEOUT (code 3) AND outer Promise.race timeout: all three should show the SAME message: "Couldn't determine location. Enter manually." Consolidate the branches so there's one message for all three failure modes.
+
+E) Fix the non-Tier-1 banner text in city-area-fields.tsx to: "Locality autocomplete unavailable for this city — type your area name."
+
+After all 5 fixes, show me the diff. Don't run the dev server, don't run typecheck, don't commit. Just the diff. ETA in your next message.
