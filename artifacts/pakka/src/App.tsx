@@ -183,12 +183,12 @@ function Router() {
         <Route path="/worker" component={WorkerPage} />
         <Route path="/worker/feed" component={WorkerFeedPage} />
         <Route path="/worker/applications" component={WorkerApplicationsPage} />
-        <Route path="/worker/jobs/:id/milestones" component={WorkerMilestonesPage} />
-        <Route path="/worker/jobs/:id" component={WorkerJobDetailPage} />
-        {/* ADR-0036: /worker/jobs (no :id) was a 404 — redirect to Applications tab */}
+        {/* ADR-0036: exact match must come before :id params — wouter is first-hit */}
         <Route path="/worker/jobs">
           {() => <Redirect to="/worker/applications" />}
         </Route>
+        <Route path="/worker/jobs/:id/milestones" component={WorkerMilestonesPage} />
+        <Route path="/worker/jobs/:id" component={WorkerJobDetailPage} />
         <Route path="/worker/wallet" component={WorkerWalletPage} />
         <Route path="/worker/kyc-pending" component={WorkerKycPendingPage} />
 
