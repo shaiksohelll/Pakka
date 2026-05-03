@@ -1,0 +1,40 @@
+Decline the notification badge offer entirely. That's out of Sprint 2 scope, we have a hard 5:30pm deadline, and I declined the same kind of feature add for Sprint 1. Don't ask again.
+
+Your last message was an infrastructure-fix summary, not a Sprint 2 completion report. Most of those 6 root causes were about getting the dev server running, not about delivering features. I need a real status check.
+
+For each Sprint 2 deliverable below, tell me DONE / PARTIAL / NOT DONE with one-line evidence (file path or quote):
+
+BUG 1 — geolocation:
+  - Promise.race against 10s timeout for navigator.geolocation.getCurrentPosition
+  - GeolocationPositionError code 1 (PERMISSION_DENIED) → fail-fast with "Location permission denied. Enter manually."
+  - GeolocationPositionError code 2 (POSITION_UNAVAILABLE) → "Couldn't determine location. Enter manually."
+  - GeolocationPositionError code 3 (TIMEOUT) → same as code 2
+  - Loading state cleared in `finally` block
+  - getCurrentPosition options: { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+
+BUG 2 — city/area sequential UX:
+  - src/components/forms/city-area-fields.tsx exists as a controlled component with onChange exposing { city, area }
+  - City combobox uses indian-cities-json (you fixed the import shape)
+  - Area field DISABLED until a valid City is selected; clears + disables when City is cleared
+  - Both fields are shadcn/ui <Combobox> built on cmdk
+  - Tier-1 cities (Mumbai, Delhi, Bengaluru, Chennai, Kolkata, Hyderabad, Pune, Ahmedabad) have static area lists in src/data/india-areas.ts (~30-50 areas each)
+  - Non-Tier-1 cities fall back to free-text area input WITH banner "Locality autocomplete unavailable for this city"
+  - Form validates City must be from list; rejects with "Please select a city from the list"
+  - Form validates Area required for Tier-1, optional otherwise
+
+Form integration:
+  - Existing city/area input(s) in post-new-job form replaced with <CityAreaFields/>
+  - Zod schema updated to enforce the rules above
+
+Schema migration:
+  - Did you check the jobs table schema for a single `location` column vs separate `city`/`area` columns?
+  - If migration needed: did you create supabase/migrations/202605020003_jobs_city_area_split.sql with the split + backfill?
+  - If migration NOT needed (already split): confirm the existing column names you're writing to.
+
+Sprint 1 regression check:
+  - Login still works for Priya (+919876500001 / 123456) and Ravi (+919876500011 / 123456)?
+  - Bottom nav still visible?
+  - /worker/jobs still redirects to /worker/applications?
+  - Realtime subscriptions still firing (any random page should show [channel-name] SUBSCRIBED in console)?
+
+Don't run typecheck or lint — just answer the status check honestly. If anything is PARTIAL or NOT DONE, say so. Don't bluff.
