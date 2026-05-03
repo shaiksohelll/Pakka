@@ -1,0 +1,59 @@
+You are a senior full-stack engineer continuing work on Pakka. Sprint 1 is shipped on a separate experiment branch. This sprint fixes two location-related UX bugs in the post-job flow.
+
+CRITICAL FRAMEWORK NOTE: This codebase is Vite + wouter, NOT Next.js. The path `src/app/...` is just a folder convention — there is no Next.js routing or server actions. Use wouter's useLocation/Route/Redirect, not next/navigation. Use Vite's import.meta.env.VITE_*, not process.env.NEXT_PUBLIC_*. Browser-side Supabase client only. If a Sprint 1 file or pattern looks Next.js-shaped in description, adapt to Vite equivalents the same way Sprint 1 was successfully adapted.
+
+Work on the current branch (already created): experiment/replit-sprint2-location
+
+=== BUG 1 — "Use My Location" stuck in loading state when permission denied ===
+
+Symptom: in the post-new-job form, tapping "Use My Location" and then denying the browser geolocation prompt leaves the button in an infinite loading state. Several minutes later it shows "Couldn't find location". The button should fail fast and gracefully.
+
+File: src/app/client/jobs/new/** (find the form component that contains the "Use My Location" button).
+
+Fix:
+  - Wrap the geolocation call in Promise.race against a 10-second timeout. On timeout, set the error state and stop the spinner.
+  - Listen for the GeolocationPositionError code in the rejection branch:
+      * code 1 (PERMISSION_DENIED) → show "Location permission denied. Enter manually." and stop loading immediately (don't wait for timeout).
+      * code 2 (POSITION_UNAVAILABLE) → show "Couldn't determine location. Enter manually." and stop loading.
+      * code 3 (TIMEOUT) → show same as code 2.
+  - Ensure the loading state is cleared in a `finally` block so no failure path leaves the spinner active.
+  - Add `enableHighAccuracy: false, timeout: 8000, maximumAge: 60000` options to navigator.geolocation.getCurrentPosition for snappier behavior.
+
+=== BUG 2 — City and Area must be two sequential fields with India-wide autocomplete ===
+
+Current state: city and area are mashed into one freeform input. Both can be filled in either order. No autocomplete. No validation that a typed city actually exists.
+
+New design:
+  - Split into two distinct form fields, City first then Area below it.
+  - Area field is DISABLED until a valid City is selected. When City is cleared, Area also clears and disables.
+  - Both fields are searchable comboboxes (use shadcn/ui's <Combobox> built on cmdk, which is already in the dep tree).
+  - City list = all major Indian cities. Source: install `indian-cities-json` from npm (or import a static JSON of districts/cities — choose whichever has cleaner Tier-2/Tier-3 coverage, not just metros). Filter as the user types.
+  - Area list = depends on selected city. For Tier-1 cities (Mumbai, Delhi, Bengaluru, Chennai, Kolkata, Hyderabad, Pune, Ahmedabad), use a static neighborhood/locality list bundled in the repo at src/data/india-areas.ts. For other cities, fall back to a free-text input WITH a banner saying "Locality autocomplete unavailable for this city — type your area name." Document this fallback explicitly in a code comment so it's not a silent UX gap.
+  - Validate on form submit: City must be a value from the list (or the form rejects with "Please select a city from the list"). Area is required if a Tier-1 city is selected; otherwise optional but recommended.
+
+Implementation steps:
+  1. Add the dependency: pnpm add indian-cities-json
+  2. Create src/data/india-areas.ts exporting `{ [city: string]: string[] }` for the 8 Tier-1 cities. Aim for ~30-50 areas per city — common neighborhoods, not every micro-locality.
+  3. Create src/components/forms/city-area-fields.tsx — a controlled component that owns both comboboxes and exposes `{ city: string; area: string }` via onChange.
+  4. Replace the existing city/area input(s) in the post-new-job form with this component.
+  5. Update the Zod schema (or whatever validation lib is in use) to enforce the rules above.
+  6. Update the jobs table insert to write city and area as separate columns. Check the schema: if there's a single `location` text column, add a migration to split into `city text not null` and `area text` columns (with a one-line backfill from the existing `location` value if the column has data).
+
+If a migration is needed, create supabase/migrations/202605020003_jobs_city_area_split.sql.
+
+=== PART 3 — Verify ===
+  1. pnpm typecheck && pnpm lint && pnpm test all green
+  2. Local sanity: open /client/jobs/new
+     - Tap "Use My Location", deny → button stops spinning within 1 second
+     - Type "Mum" in city field → autocomplete shows Mumbai
+     - Select Mumbai → area field becomes active, type "Ban" → shows Bandra, Bandra East, Bandra West
+     - Type a city not in the list → form blocks submit with validation error
+  3. Report any noteworthy gaps (e.g. cities you couldn't find a clean dataset for)
+
+Do NOT commit or push. I will review the diff.
+
+=== Out of scope ===
+  - Sprint 1 work (already merged on a separate branch)
+  - Wallet top-up / withdrawal screens (Sprint 3)
+  - Auto-release cron deployment (Sprint 3)
+  - Phase 5 work

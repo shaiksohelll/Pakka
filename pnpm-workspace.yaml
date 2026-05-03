@@ -1,0 +1,32 @@
+packages:
+  - "artifacts/*"
+
+catalog:
+  # Core build tools
+  vite: "^6.3.5"
+  "@vitejs/plugin-react": "^4.5.1"
+  "@tailwindcss/vite": "^4.1.6"
+  tailwindcss: "^4.1.6"
+
+  # React
+  react: "^19.1.0"
+  react-dom: "^19.1.0"
+  "@types/react": "^19.1.5"
+  "@types/react-dom": "^19.1.5"
+  "@types/node": "^22.14.1"
+
+  # TanStack
+  "@tanstack/react-query": "^5.100.5"
+
+  # Utilities
+  zod: "^3.24.2"
+  clsx: "^2.1.1"
+  "tailwind-merge": "^3.5.0"
+  "class-variance-authority": "^0.7.1"
+  "framer-motion": "^12.10.0"
+  "lucide-react": "^0.511.0"
+
+  # Replit plugins
+  "@replit/vite-plugin-cartographer": "^0.5.5"
+  "@replit/vite-plugin-dev-banner": "^0.1.2"
+  "@replit/vite-plugin-runtime-error-modal": "^0.0.6"
