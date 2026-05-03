@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -52,6 +52,15 @@ export function CityAreaFields<T extends FieldValues>({
     [form, areaField]
   );
 
+  const clearCity = useCallback(() => {
+    form.setValue(cityField, "" as T[Path<T>], { shouldValidate: true });
+    form.setValue(areaField, "" as T[Path<T>], { shouldValidate: false });
+  }, [form, cityField, areaField]);
+
+  const clearArea = useCallback(() => {
+    form.setValue(areaField, "" as T[Path<T>], { shouldValidate: true });
+  }, [form, areaField]);
+
   const cityError = form.formState.errors[cityField];
   const areaError = form.formState.errors[areaField];
 
@@ -73,7 +82,15 @@ export function CityAreaFields<T extends FieldValues>({
               <span className={cn(!city && "text-muted-foreground")}>
                 {city || "Select city..."}
               </span>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <span className="ml-2 flex shrink-0 items-center gap-1">
+                {city && (
+                  <X
+                    className="h-3.5 w-3.5 opacity-50 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); clearCity(); }}
+                  />
+                )}
+                <ChevronsUpDown className="h-4 w-4 opacity-50" />
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[300px] p-0" align="start">
@@ -123,7 +140,15 @@ export function CityAreaFields<T extends FieldValues>({
                 <span className={cn(!area && "text-muted-foreground")}>
                   {area || "Select area..."}
                 </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <span className="ml-2 flex shrink-0 items-center gap-1">
+                  {area && (
+                    <X
+                      className="h-3.5 w-3.5 opacity-50 hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); clearArea(); }}
+                    />
+                  )}
+                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0" align="start">

@@ -54,7 +54,7 @@ export async function createJob(payload: {
       title: payload.title,
       description: payload.description,
       category: payload.category,
-      budget: payload.budget,
+      total_budget: payload.budget,
       city: payload.city,
       area: payload.area ?? null,
       location_text,
@@ -100,7 +100,7 @@ export async function getApplicationsForJob(jobId: string) {
 export async function getWorkerApplications(workerId: string) {
   const { data, error } = await supabase
     .from("applications")
-    .select("*, job:jobs(title, budget, status, category, location_text)")
+    .select("*, job:jobs(title, total_budget, status, category, location_text)")
     .eq("worker_id", workerId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);

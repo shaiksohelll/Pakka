@@ -27,7 +27,7 @@ export interface Job {
   title: string;
   description: string | null;
   category: string;
-  budget: number;
+  total_budget: number;
   city: string | null;
   area: string | null;
   lat: number | null;

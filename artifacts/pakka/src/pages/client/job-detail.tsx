@@ -81,7 +81,7 @@ export default function ClientJobDetail() {
             </div>
 
             <div className="flex items-center gap-4 text-sm">
-              <span className="font-bold text-lg text-primary">{formatInr(job.budget)}</span>
+              <span className="font-bold text-lg text-primary">{formatInr(job.total_budget)}</span>
             </div>
 
             {job.location_text && (

@@ -71,7 +71,7 @@ export default function WorkerFeed() {
                   <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full font-medium">
                     {CATEGORY_LABELS[job.category] ?? job.category}
                   </span>
-                  <span className="font-bold text-primary text-sm">{formatInr(job.budget)}</span>
+                  <span className="font-bold text-primary text-sm">{formatInr(job.total_budget)}</span>
                 </div>
                 {job.location_text && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">

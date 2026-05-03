@@ -89,7 +89,7 @@ export default function WorkerJobDetail() {
               <StatusBadge status={job.status} />
             </div>
 
-            <p className="text-2xl font-bold text-primary">{formatInr(job.budget)}</p>
+            <p className="text-2xl font-bold text-primary">{formatInr(job.total_budget)}</p>
 
             {job.location_text && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

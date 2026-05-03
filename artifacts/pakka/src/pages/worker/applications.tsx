@@ -35,7 +35,7 @@ export default function WorkerApplications() {
             </p>
           </div>
         ) : (
-          applications?.map((app: { id: string; status: string; created_at: string; job_id: string; job: { title: string; budget: number; status: string; category: string; location_text: string | null } | null }) => (
+          applications?.map((app: { id: string; status: string; created_at: string; job_id: string; job: { title: string; total_budget: number; status: string; category: string; location_text: string | null } | null }) => (
             <Card
               key={app.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
@@ -57,8 +57,8 @@ export default function WorkerApplications() {
                       {CATEGORY_LABELS[app.job.category] ?? app.job.category}
                     </span>
                   )}
-                  {app.job?.budget && (
-                    <span className="font-bold text-foreground">{formatInr(app.job.budget)}</span>
+                  {app.job?.total_budget && (
+                    <span className="font-bold text-foreground">{formatInr(app.job.total_budget)}</span>
                   )}
                 </div>
                 {app.job?.location_text && (

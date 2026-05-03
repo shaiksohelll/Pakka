@@ -62,7 +62,7 @@ export default function ClientJobs() {
                   <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">
                     {CATEGORY_LABELS[job.category] ?? job.category}
                   </span>
-                  <span className="font-semibold text-foreground">{formatInr(job.budget)}</span>
+                  <span className="font-semibold text-foreground">{formatInr(job.total_budget)}</span>
                 </div>
                 {job.location_text && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">

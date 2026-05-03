@@ -139,7 +139,7 @@ export default function ClientMilestones() {
         {job && (
           <div className="rounded-lg bg-muted p-3 text-sm flex justify-between">
             <span className="text-muted-foreground">Total Budget</span>
-            <span className="font-bold">{formatInr(job.budget)}</span>
+            <span className="font-bold">{formatInr(job.total_budget)}</span>
           </div>
         )}
         {totalBudget > 0 && (
