@@ -4,11 +4,12 @@ modules = ["nodejs-20"]
 localPort = 5173
 externalPort = 80
 
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
 [workflows]
 runButton = "Project"
 
 [nix]
 channel = "stable-25_05"
-
-[agent]
-expertMode = true
