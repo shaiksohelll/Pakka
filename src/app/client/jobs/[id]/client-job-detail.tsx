@@ -200,6 +200,20 @@ export function ClientJobDetail() {
             });
         },
       )
+      // Fix D: also subscribe to UPDATE so status changes (pending→accepted,
+      // pending→rejected) propagate to the client's detail page in real-time.
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
       .subscribe((status, err) => {
         console.log('[job-applications-realtime] client', status, err ?? '');
       });
@@ -245,7 +259,7 @@ export function ClientJobDetail() {
           <StatusBadge variant={job.status} />
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span className="capitalize">{CATEGORY_LABELS[job.category] ?? job.category}</span>
+          <span className="text-sm text-muted-foreground">{CATEGORY_LABELS[job.category] ?? job.category}</span>
           <span>·</span>
           <span>{relativeTime(job.created_at)}</span>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,42 @@ const STATUS_GROUPS: { label: string; statuses: AppStatus[] }[] = [
 ];
 
 export function WorkerApplications() {
+  const queryClient = useQueryClient();
+
+  // ── Realtime: application status changes ─────────────────────────────────
+  // Fix F: subscribe to UPDATE on job_applications (worker_id=eq.userId) so
+  // that when a client accepts / rejects an application the worker's list page
+  // flips status without a hard refresh.
+  useEffect(() => {
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      channel = supabase
+        .channel(`worker-applications-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'job_applications',
+            filter: `worker_id=eq.${user.id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['worker-applications'] });
+          },
+        )
+        .subscribe((status, err) => {
+          console.log('[worker-applications-realtime]', status, err ?? '');
+        });
+    });
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ["worker-applications"],
     staleTime: 10_000,
@@ -125,7 +162,7 @@ export function WorkerApplications() {
                     <div className="flex-1 space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge variant={app.status} />
-                        <span className="text-xs text-muted-foreground capitalize">
+                        <span className="text-xs text-muted-foreground">
                           {CATEGORY_LABELS[app.job_category] ?? app.job_category}
                         </span>
                       </div>

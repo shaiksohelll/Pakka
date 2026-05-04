@@ -51,7 +51,8 @@ export async function fundMilestoneAction(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/client/jobs");
+    revalidatePath("/client/jobs", "layout");
+    revalidatePath("/worker/jobs", "layout");
     return { success: true, data: { ledgerId: data as string } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -83,7 +84,8 @@ export async function submitMilestoneAction(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/worker/jobs");
+    revalidatePath("/client/jobs", "layout");
+    revalidatePath("/worker/jobs", "layout");
     return { success: true, data: { milestoneId: data as string } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -116,7 +118,8 @@ export async function approveMilestoneAction(
 
     // TODO: Phase 6 — Web Push notification via Edge Function
 
-    revalidatePath("/client/jobs");
+    revalidatePath("/client/jobs", "layout");
+    revalidatePath("/worker/jobs", "layout");
     return { success: true, data: { ledgerId: data as string } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -148,7 +151,8 @@ export async function disputeMilestoneAction(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/client/jobs");
+    revalidatePath("/client/jobs", "layout");
+    revalidatePath("/worker/jobs", "layout");
     return { success: true, data: { disputeId: data as string } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

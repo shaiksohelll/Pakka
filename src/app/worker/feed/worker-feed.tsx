@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { MapPin, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -76,6 +76,27 @@ async function fetchFeedPage({
 export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | "rejected" }) {
   const [selectedCategories, setSelectedCategories] = useState<JobCategory[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
+  const queryClient = useQueryClient();
+
+  // ── Realtime: new open jobs ────────────────────────────────────────────────
+  // Fix C: subscribe to INSERT on jobs (status=eq.open) so new postings appear
+  // in the feed without a hard refresh.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('worker-feed-new-jobs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['worker-feed'] });
+        },
+      )
+      .subscribe((status, err) => {
+        console.log('[worker-feed-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
     queryKey: ["worker-applied-jobs"],

@@ -17,6 +17,18 @@ export function createClient(): SupabaseClient {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
+  // Fix A: Eagerly prime the Realtime transport with the persisted session JWT
+  // so that channels created in useEffect callbacks (macrotasks) don't start
+  // life with the anon key. @supabase/ssr resolves getSession() from the
+  // cookie cache — no network round-trip — so the .then() is a microtask
+  // that completes before the browser's first useEffect macrotask fires.
+  _client.auth.getSession().then(({ data: { session } }) => {
+    if (session?.access_token) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (_client as any).realtime.setAuth(session.access_token);
+    }
+  });
+
   // H2 fix: propagate the authenticated JWT to the Realtime transport so that
   // RLS SELECT policies evaluate against the user's session, not the anon key.
   //
