@@ -41,11 +41,19 @@ export function WorkerApplications() {
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    // Guard against the component unmounting before getUser() resolves.
+    // Without this, the cleanup closure captures `channel = null` and the
+    // subscription leaks for the lifetime of the singleton client.
+    let isMounted = true;
 
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+      // Exit early if userId is null (unauthenticated) OR if the component
+      // has already unmounted — in both cases do not subscribe at all.
+      if (!user || !isMounted) return;
+
+      const channelName = `worker-applications-${user.id}`;
       channel = supabase
-        .channel(`worker-applications-${user.id}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -59,11 +67,12 @@ export function WorkerApplications() {
           },
         )
         .subscribe((status, err) => {
-          console.log('[worker-applications-realtime]', status, err ?? '');
+          console.log(`[${channelName}]`, status, err ?? '');
         });
     });
 
     return () => {
+      isMounted = false;
       if (channel) supabase.removeChannel(channel);
     };
   }, [queryClient]);

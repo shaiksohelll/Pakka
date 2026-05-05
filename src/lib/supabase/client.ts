@@ -29,26 +29,18 @@ export function createClient(): SupabaseClient {
     }
   });
 
-  // H2 fix: propagate the authenticated JWT to the Realtime transport so that
+  // Propagate the authenticated JWT to the Realtime transport so that
   // RLS SELECT policies evaluate against the user's session, not the anon key.
   //
-  // Branch on session presence rather than event name:
-  //  - session present (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED)
-  //    → push the fresh token. INITIAL_SESSION fires on every page reload with a
-  //    persisted session; enumerating event names misses it.
-  //  - SIGNED_OUT (session is null) → clear the token AND remove all channels so
-  //    that the old user's JWT does not linger on the websocket until tab close.
+  // Only act when a session is present (INITIAL_SESSION, SIGNED_IN,
+  // TOKEN_REFRESHED, USER_UPDATED). Do NOT handle SIGNED_OUT here —
+  // @supabase/ssr fires spurious SIGNED_OUT events during cookie-based token
+  // refresh races, and calling removeAllChannels() on those causes the channel
+  // oscillation visible in the console.
   _client.auth.onAuthStateChange((event, session) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rt = (_client as any).realtime;
     if (session?.access_token) {
-      rt.setAuth(session.access_token);
-    } else if (event === "SIGNED_OUT") {
-      // Pass empty string — the Supabase JS SDK accepts "" to revert to the
-      // anon key, which is safer than null if the type does not accept null.
-      rt.setAuth("");
-      // Remove all open channels so a fresh sign-in starts clean.
-      _client?.removeAllChannels();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (_client as any).realtime.setAuth(session.access_token);
     }
   });
 
