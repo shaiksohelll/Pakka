@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { Send, CheckCircle2, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,13 +44,12 @@ type WorkerJobData = {
   workerKyc: "pending" | "verified" | "rejected";
 };
 
-async function fetchWorkerJobData(jobId: string, workerKyc: "pending" | "verified" | "rejected"): Promise<WorkerJobData> {
+async function fetchWorkerJobData(
+  jobId: string,
+  workerKyc: "pending" | "verified" | "rejected",
+  userId: string,
+): Promise<WorkerJobData> {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
 
   const [jobRes, msRes, matRes, appRes] = await Promise.all([
     supabase
@@ -70,7 +70,7 @@ async function fetchWorkerJobData(jobId: string, workerKyc: "pending" | "verifie
       .from("job_applications")
       .select("id")
       .eq("job_id", jobId)
-      .eq("worker_id", user.id)
+      .eq("worker_id", userId)
       .maybeSingle(),
   ]);
 
@@ -103,11 +103,13 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
   const { id: jobId } = useParams<{ id: string }>();
   const [applyOpen, setApplyOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["worker-job", jobId, workerKyc],
+    queryKey: ["worker-job", jobId, workerKyc, user?.id],
     staleTime: 30_000,
-    queryFn: () => fetchWorkerJobData(jobId, workerKyc),
+    enabled: !!user?.id,
+    queryFn: () => fetchWorkerJobData(jobId, workerKyc, user!.id),
   });
 
   function handleApplySuccess() {

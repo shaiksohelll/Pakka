@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,67 +34,51 @@ const STATUS_GROUPS: { label: string; statuses: AppStatus[] }[] = [
 
 export function WorkerApplications() {
   const queryClient = useQueryClient();
+  // Shared cache — one getUser() network call for the whole 5-min window,
+  // deduped across every component on this route via queryKey ["current-user"].
+  const { user } = useUser();
 
   // ── Realtime: application status changes ─────────────────────────────────
-  // Fix F: subscribe to UPDATE on job_applications (worker_id=eq.userId) so
-  // that when a client accepts / rejects an application the worker's list page
-  // flips status without a hard refresh.
+  // Subscribe synchronously once user resolves — no isMounted / async race
+  // because user.id arrives as a stable hook value, not a Promise.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    // Guard against the component unmounting before getUser() resolves.
-    // Without this, the cleanup closure captures `channel = null` and the
-    // subscription leaks for the lifetime of the singleton client.
-    let isMounted = true;
+    const channelName = `worker-applications-${user.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'job_applications',
+          filter: `worker_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['worker-applications'] });
+        },
+      )
+      .subscribe((status, err) => {
+        console.log(`[${channelName}]`, status, err ?? '');
+      });
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      // Exit early if userId is null (unauthenticated) OR if the component
-      // has already unmounted — in both cases do not subscribe at all.
-      if (!user || !isMounted) return;
-
-      const channelName = `worker-applications-${user.id}`;
-      channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'job_applications',
-            filter: `worker_id=eq.${user.id}`,
-          },
-          () => {
-            queryClient.invalidateQueries({ queryKey: ['worker-applications'] });
-          },
-        )
-        .subscribe((status, err) => {
-          console.log(`[${channelName}]`, status, err ?? '');
-        });
-    });
-
-    return () => {
-      isMounted = false;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
 
   const { data: applications, isLoading, error } = useQuery({
-    queryKey: ["worker-applications"],
+    queryKey: ["worker-applications", user?.id],
     staleTime: 10_000,
+    enabled: !!user?.id,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       const { data, error } = await supabase
         .from("job_applications")
         .select(`
           id, job_id, bid_amount, eta_days, message, status, created_at,
           jobs!job_applications_job_id_fkey(title, category, total_budget)
         `)
-        .eq("worker_id", user.id)
+        .eq("worker_id", user!.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

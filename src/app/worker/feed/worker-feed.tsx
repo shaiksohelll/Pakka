@@ -5,6 +5,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-quer
 import Link from "next/link";
 import { MapPin, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +78,7 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
   const [selectedCategories, setSelectedCategories] = useState<JobCategory[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
   const queryClient = useQueryClient();
+  const { user } = useUser();
 
   // ── Realtime: new open jobs ────────────────────────────────────────────────
   // Fix C: subscribe to INSERT on jobs (status=eq.open) so new postings appear
@@ -99,19 +101,15 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
   }, [queryClient]);
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
-    queryKey: ["worker-applied-jobs"],
+    queryKey: ["worker-applied-jobs", user?.id],
     staleTime: 30_000,
+    enabled: !!user?.id,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return new Set<string>();
-
       const { data } = await supabase
         .from("job_applications")
         .select("job_id")
-        .eq("worker_id", user.id);
+        .eq("worker_id", user!.id);
 
       return new Set((data ?? []).map((a) => a.job_id));
     },

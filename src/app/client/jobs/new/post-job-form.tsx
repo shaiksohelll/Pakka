@@ -191,7 +191,11 @@ export function PostJobForm() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a category">
+                    {watch("category")
+                      ? CATEGORY_LABELS[watch("category")!]
+                      : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {JOB_CATEGORIES.map((cat) => (

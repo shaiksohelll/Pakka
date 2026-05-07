@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Lock, Wallet, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -33,18 +34,14 @@ type LockedByJob = {
 };
 
 // ── Fetcher ───────────────────────────────────────────────────────────────────
-async function fetchWalletData(role: "client" | "worker") {
+async function fetchWalletData(role: "client" | "worker", userId: string) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
 
   const [walletRes, ledgerRes] = await Promise.all([
     supabase
       .from("wallets")
       .select("available_balance,locked_balance")
-      .eq("profile_id", user.id)
+      .eq("profile_id", userId)
       .single(),
     supabase
       .from("escrow_ledger")
@@ -53,7 +50,7 @@ async function fetchWalletData(role: "client" | "worker") {
         jobs!escrow_ledger_job_id_fkey(title),
         milestones!escrow_ledger_milestone_id_fkey(title)
       `)
-      .or(`from_wallet.eq.${user.id},to_wallet.eq.${user.id}`)
+      .or(`from_wallet.eq.${userId},to_wallet.eq.${userId}`)
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
@@ -109,15 +106,17 @@ async function fetchWalletData(role: "client" | "worker") {
     }
   }
 
-  return { wallet, ledger, lockedByJob, userId: user.id };
+  return { wallet, ledger, lockedByJob, userId };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function WalletView({ role }: { role: "client" | "worker" }) {
+  const { user } = useUser();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["wallet", role],
+    queryKey: ["wallet", role, user?.id],
     staleTime: 10_000,
-    queryFn: () => fetchWalletData(role),
+    enabled: !!user?.id,
+    queryFn: () => fetchWalletData(role, user!.id),
   });
 
   if (isLoading) return <WalletSkeleton />;
