@@ -2,6 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@/hooks/use-user";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Users, Calendar, CheckCircle2, Loader2, Shield } from "lucide-react";
@@ -152,6 +153,7 @@ export function ClientJobDetail() {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["client-job", jobId],
@@ -160,7 +162,9 @@ export function ClientJobDetail() {
   });
 
   // ── Realtime: new applications ────────────────────────────────────────────
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`job-applications-${jobId}`)
@@ -221,7 +225,7 @@ export function ClientJobDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [jobId, queryClient]);
+  }, [user?.id, jobId, queryClient]);
 
   // ── Accept handler ────────────────────────────────────────────────────────
   function handleAccept(applicationId: string) {

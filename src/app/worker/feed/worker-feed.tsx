@@ -83,7 +83,9 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
   // ── Realtime: new open jobs ────────────────────────────────────────────────
   // Fix C: subscribe to INSERT on jobs (status=eq.open) so new postings appear
   // in the feed without a hard refresh.
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
       .channel('worker-feed-new-jobs')
@@ -98,7 +100,7 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
         console.log('[worker-feed-realtime]', status, err ?? '');
       });
     return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+  }, [user?.id, queryClient]);
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
     queryKey: ["worker-applied-jobs", user?.id],

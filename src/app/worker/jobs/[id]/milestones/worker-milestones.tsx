@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { submitMilestoneAction } from "@/app/_actions/escrow";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ export function WorkerMilestones({
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["worker-milestones", jobId],
@@ -107,7 +109,9 @@ export function WorkerMilestones({
   });
 
   // ── Realtime ────────────────────────────────────────────────────────────
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`worker-milestones-${jobId}`)
@@ -132,7 +136,7 @@ export function WorkerMilestones({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [jobId, queryClient]);
+  }, [user?.id, jobId, queryClient]);
 
   // ── Submit handler ──────────────────────────────────────────────────────
   function handleSubmit(milestoneId: string) {

@@ -13,6 +13,7 @@ import {
   Shield,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import {
   fundMilestoneAction,
   approveMilestoneAction,
@@ -121,6 +122,7 @@ export function ClientMilestones() {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "fund" | "approve" | "dispute";
     milestoneId: string;
@@ -136,7 +138,9 @@ export function ClientMilestones() {
   });
 
   // ── Realtime: milestone status changes ──────────────────────────────────
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`milestones-${jobId}`)
@@ -160,7 +164,7 @@ export function ClientMilestones() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [jobId, queryClient]);
+  }, [user?.id, jobId, queryClient]);
 
   // ── Action handlers ─────────────────────────────────────────────────────
   function handleFund(milestoneId: string) {
