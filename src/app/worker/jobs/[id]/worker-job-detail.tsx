@@ -156,7 +156,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
     queryClient.invalidateQueries({ queryKey: ["worker-applied-jobs"] });
   }
 
-  if (isLoading) return <WorkerJobSkeleton />;
+  if (!user?.id || isLoading) return <WorkerJobSkeleton />;
   if (error || !data) {
     return (
       <div className="rounded-xl border bg-destructive/5 p-6 text-center text-destructive">
