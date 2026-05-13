@@ -153,7 +153,8 @@ export function ClientMilestones() {
           table: "milestones",
           filter: `job_id=eq.${jobId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
@@ -166,7 +167,8 @@ export function ClientMilestones() {
           table: "escrow_ledger",
           filter: `job_id=eq.${jobId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         },
       )
@@ -178,7 +180,8 @@ export function ClientMilestones() {
           table: "wallets",
           filter: `user_id=eq.${userId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         },
       )

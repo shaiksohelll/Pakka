@@ -124,7 +124,8 @@ export function WorkerMilestones({
           table: "milestones",
           filter: `job_id=eq.${jobId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[worker-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({
             queryKey: ["worker-milestones", jobId],
           });
@@ -138,7 +139,8 @@ export function WorkerMilestones({
           table: "escrow_ledger",
           filter: `job_id=eq.${jobId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[worker-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({
             queryKey: ["worker-milestones", jobId],
           });
@@ -152,7 +154,8 @@ export function WorkerMilestones({
           table: "wallets",
           filter: `user_id=eq.${userId}`,
         },
-        () => {
+        (payload) => {
+          console.log('[worker-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
           queryClient.invalidateQueries({
             queryKey: ["worker-milestones", jobId],
           });
