@@ -138,59 +138,60 @@ export function ClientMilestones() {
   });
 
   // ── Realtime: milestone status changes ──────────────────────────────────
-  // Gate on user?.id so the channel is created AFTER setAuth has run.
+  // Await session before subscribing so the channel uses the user JWT, not anon.
   useEffect(() => {
     if (!user?.id) return;
     const userId = user.id;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`client-milestones-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "milestones",
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).realtime.setAuth(session.access_token);
+        console.log('[client-milestones-realtime] setAuth applied');
+      } else {
+        console.warn('[client-milestones-realtime] NO SESSION at subscribe time');
+      }
+
+      channel = supabase
+        .channel(`client-milestones-${jobId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'milestones',
           filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
-          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
-          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "escrow_ledger",
+        }, (payload) => {
+          console.log('[client-milestones-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
+          queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+        })
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'escrow_ledger',
           filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
-          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
-          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "wallets",
+        }, (payload) => {
+          console.log('[client-milestones-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'wallets',
           filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('[client-milestones-realtime] event:', payload.table, payload.eventType, payload.new ?? payload.old);
-          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-        },
-      )
-      .subscribe((status, err) => {
-        console.log('[client-milestones-realtime]', status, err ?? '');
-      });
+        }, (payload) => {
+          console.log('[client-milestones-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
+        })
+        .subscribe((status, err) => {
+          console.log('[client-milestones-realtime]', status, err ?? '');
+        });
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [user?.id, jobId, queryClient]);
 

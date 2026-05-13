@@ -23,6 +23,8 @@ export function createClient(): SupabaseClient {
   // cookie cache — no network round-trip — so the .then() is a microtask
   // that completes before the browser's first useEffect macrotask fires.
   _client.auth.getSession().then(({ data: { session } }) => {
+    console.log('[supabase-client] eager-prime',
+      session ? 'session-present' : 'no-session');
     if (session?.access_token) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (_client as any).realtime.setAuth(session.access_token);
@@ -38,6 +40,8 @@ export function createClient(): SupabaseClient {
   // refresh races, and calling removeAllChannels() on those causes the channel
   // oscillation visible in the console.
   _client.auth.onAuthStateChange((event, session) => {
+    console.log('[supabase-client] auth-event', event,
+      session ? 'session-present' : 'no-session');
     if (session?.access_token) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (_client as any).realtime.setAuth(session.access_token);

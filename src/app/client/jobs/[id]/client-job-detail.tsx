@@ -162,78 +162,82 @@ export function ClientJobDetail() {
   });
 
   // ── Realtime: job status changes + applications ───────────────────────────
-  // Gate on user?.id so the channel is created AFTER setAuth has run.
+  // Await session before subscribing so the channel uses the user JWT, not anon.
   useEffect(() => {
     if (!user?.id) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`client-job-detail-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "jobs",
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).realtime.setAuth(session.access_token);
+        console.log('[client-job-detail-realtime] setAuth applied');
+      } else {
+        console.warn('[client-job-detail-realtime] NO SESSION at subscribe time');
+      }
+
+      channel = supabase
+        .channel(`client-job-detail-${jobId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'jobs',
           filter: `id=eq.${jobId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "job_applications",
+        }, (payload) => {
+          console.log('[client-job-detail-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+        })
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'job_applications',
           filter: `job_id=eq.${jobId}`,
-        },
-        (payload) => {
+        }, (payload) => {
+          console.log('[client-job-detail-realtime] event:',
+            payload.table, payload.eventType);
           // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
           // blocked by RLS for any non-self row, always returning null and
           // falling back to the literal "a worker" in the toast. ADR-0034.
           const workerId = (payload.new as { worker_id: string }).worker_id;
 
           // Trigger refresh immediately — DO NOT gate on RPC.
-          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+          queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
 
           // Enrich toast with worker name; failure is non-fatal.
           Promise.resolve(
-            supabase.rpc("get_application_worker_summary", { worker_ids: [workerId] }),
+            supabase.rpc('get_application_worker_summary', { worker_ids: [workerId] }),
           )
             .then(({ data, error }) => {
               if (error) {
-                console.error("[client-job-detail-realtime] RPC error:", error);
-                toast.info("Someone just applied!");
+                console.error('[client-job-detail-realtime] RPC error:', error);
+                toast.info('Someone just applied!');
                 return;
               }
-              const name = data?.[0]?.full_name ?? "Someone";
+              const name = data?.[0]?.full_name ?? 'Someone';
               toast.info(`${name} just applied!`);
             })
             .catch((err: unknown) => {
-              console.error("[client-job-detail-realtime] RPC rejected:", err);
-              toast.info("Someone just applied!");
+              console.error('[client-job-detail-realtime] RPC rejected:', err);
+              toast.info('Someone just applied!');
             });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "job_applications",
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'job_applications',
           filter: `job_id=eq.${jobId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
-        },
-      )
-      .subscribe((status, err) => {
-        console.log('[client-job-detail-realtime]', status, err ?? '');
-      });
+        }, (payload) => {
+          console.log('[client-job-detail-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+        })
+        .subscribe((status, err) => {
+          console.log('[client-job-detail-realtime]', status, err ?? '');
+        });
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [user?.id, jobId, queryClient]);
 

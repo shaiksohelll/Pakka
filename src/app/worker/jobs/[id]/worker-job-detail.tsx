@@ -113,41 +113,51 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
   });
 
   // ── Realtime: job accept + milestone creation ──────────────────────────────
-  // Gate on user?.id so the channel is created AFTER setAuth has run.
+  // Await session before subscribing so the channel uses the user JWT, not anon.
   useEffect(() => {
     if (!jobId || !user?.id) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`worker-job-detail-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "jobs",
-          filter: `id=eq.${jobId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "milestones",
-          filter: `job_id=eq.${jobId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
-        },
-      )
-      .subscribe((status) => {
-        console.log('[worker-job-detail-realtime]', status);
-      });
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
 
-    return () => { supabase.removeChannel(channel); };
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).realtime.setAuth(session.access_token);
+        console.log('[worker-job-detail-realtime] setAuth applied');
+      } else {
+        console.warn('[worker-job-detail-realtime] NO SESSION at subscribe time');
+      }
+
+      channel = supabase
+        .channel(`worker-job-detail-${jobId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'jobs',
+          filter: `id=eq.${jobId}`,
+        }, (payload) => {
+          console.log('[worker-job-detail-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
+        })
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'milestones',
+          filter: `job_id=eq.${jobId}`,
+        }, (payload) => {
+          console.log('[worker-job-detail-realtime] event:',
+            payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
+        })
+        .subscribe((status, err) => {
+          console.log('[worker-job-detail-realtime]', status, err ?? '');
+        });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [jobId, user?.id, queryClient]);
 
   function handleApplySuccess() {
