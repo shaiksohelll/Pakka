@@ -141,9 +141,10 @@ export function ClientMilestones() {
   // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
     if (!user?.id) return;
+    const userId = user.id;
     const supabase = createClient();
     const channel = supabase
-      .channel(`milestones-${jobId}`)
+      .channel(`client-milestones-${jobId}`)
       .on(
         "postgres_changes",
         {
@@ -157,8 +158,32 @@ export function ClientMilestones() {
           queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "escrow_ledger",
+          filter: `job_id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "wallets",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[milestones-realtime] client', status, err ?? '');
+        console.log('[client-milestones-realtime]', status, err ?? '');
       });
 
     return () => {

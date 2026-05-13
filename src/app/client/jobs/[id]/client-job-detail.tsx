@@ -161,13 +161,25 @@ export function ClientJobDetail() {
     queryFn: () => fetchJobDetail(jobId),
   });
 
-  // ── Realtime: new applications ────────────────────────────────────────────
+  // ── Realtime: job status changes + applications ───────────────────────────
   // Gate on user?.id so the channel is created AFTER setAuth has run.
   useEffect(() => {
     if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
-      .channel(`job-applications-${jobId}`)
+      .channel(`client-job-detail-${jobId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
       .on(
         "postgres_changes",
         {
@@ -191,7 +203,7 @@ export function ClientJobDetail() {
           )
             .then(({ data, error }) => {
               if (error) {
-                console.error("[job-applications-realtime] RPC error:", error);
+                console.error("[client-job-detail-realtime] RPC error:", error);
                 toast.info("Someone just applied!");
                 return;
               }
@@ -199,13 +211,11 @@ export function ClientJobDetail() {
               toast.info(`${name} just applied!`);
             })
             .catch((err: unknown) => {
-              console.error("[job-applications-realtime] RPC rejected:", err);
+              console.error("[client-job-detail-realtime] RPC rejected:", err);
               toast.info("Someone just applied!");
             });
         },
       )
-      // Fix D: also subscribe to UPDATE so status changes (pending→accepted,
-      // pending→rejected) propagate to the client's detail page in real-time.
       .on(
         "postgres_changes",
         {
@@ -219,7 +229,7 @@ export function ClientJobDetail() {
         },
       )
       .subscribe((status, err) => {
-        console.log('[job-applications-realtime] client', status, err ?? '');
+        console.log('[client-job-detail-realtime]', status, err ?? '');
       });
 
     return () => {

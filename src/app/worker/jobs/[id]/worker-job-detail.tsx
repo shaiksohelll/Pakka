@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { Send, CheckCircle2, Shield } from "lucide-react";
@@ -111,6 +111,44 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
     enabled: !!user?.id,
     queryFn: () => fetchWorkerJobData(jobId, workerKyc, user!.id),
   });
+
+  // ── Realtime: job accept + milestone creation ──────────────────────────────
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
+  useEffect(() => {
+    if (!jobId || !user?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`worker-job-detail-${jobId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "milestones",
+          filter: `job_id=eq.${jobId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
+        },
+      )
+      .subscribe((status) => {
+        console.log('[worker-job-detail-realtime]', status);
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [jobId, user?.id, queryClient]);
 
   function handleApplySuccess() {
     queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
