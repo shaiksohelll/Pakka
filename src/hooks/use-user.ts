@@ -25,7 +25,7 @@ export function useUser(): UseUserResult {
       (event) => {
         if (event === "SIGNED_OUT") {
           queryClient.removeQueries({ queryKey: ["current-user"] });
-        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        } else if (event === "SIGNED_IN") {
           queryClient.invalidateQueries({ queryKey: ["current-user"] });
         }
       },
