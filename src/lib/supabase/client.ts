@@ -42,6 +42,12 @@ export function createClient(): SupabaseClient {
     if (session?.access_token) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (_client as any).realtime.setAuth(session.access_token);
+    } else {
+      // G13 fix: reset to anon key so the Realtime transport doesn't retain
+      // a revoked JWT after sign-out.  Using the anon key (not null) keeps
+      // the WebSocket connectable for any public-facing subscriptions.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (_client as any).realtime.setAuth(supabaseAnonKey);
     }
   });
 

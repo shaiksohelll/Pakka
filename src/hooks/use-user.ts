@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/types/database";
@@ -14,6 +15,24 @@ type UseUserResult = {
 };
 
 export function useUser(): UseUserResult {
+  const queryClient = useQueryClient();
+
+  // G9 fix: clear stale "current-user" cache on sign-out so downstream
+  // components don't render with a phantom user for up to staleTime (5 min).
+  useEffect(() => {
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === "SIGNED_OUT") {
+          queryClient.removeQueries({ queryKey: ["current-user"] });
+        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          queryClient.invalidateQueries({ queryKey: ["current-user"] });
+        }
+      },
+    );
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
+
   const query = useQuery({
     queryKey: ["current-user"],
     staleTime: 5 * 60 * 1000,  // user identity stable for 5 min
