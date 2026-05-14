@@ -109,66 +109,48 @@ export function WorkerMilestones({
   });
 
   // ── Realtime ────────────────────────────────────────────────────────────
-  // Await session before subscribing so the channel uses the user JWT, not anon.
+  // The singleton client's eager-prime + onAuthStateChange propagates the JWT
+  // to the Realtime transport before any channel is created.
   useEffect(() => {
     if (!user?.id) return;
     const userId = user.id;
     const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let cancelled = false;
-
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session?.access_token) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any).realtime.setAuth(session.access_token);
-        console.log('[worker-milestones-realtime] setAuth applied');
-      } else {
-        console.warn('[worker-milestones-realtime] NO SESSION at subscribe time');
-      }
-
-      channel = supabase
-        .channel(`worker-milestones-${jobId}`)
-        .on('postgres_changes', {
-          event: 'UPDATE', schema: 'public', table: 'milestones',
-          filter: `job_id=eq.${jobId}`,
-        }, (payload) => {
-          console.log('[worker-milestones-realtime] event:',
-            payload.table, payload.eventType);
-          queryClient.invalidateQueries({
-            queryKey: ['worker-milestones', jobId],
-          });
-        })
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'escrow_ledger',
-          filter: `job_id=eq.${jobId}`,
-        }, (payload) => {
-          console.log('[worker-milestones-realtime] event:',
-            payload.table, payload.eventType);
-          queryClient.invalidateQueries({
-            queryKey: ['worker-milestones', jobId],
-          });
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE', schema: 'public', table: 'wallets',
-          filter: `user_id=eq.${userId}`,
-        }, (payload) => {
-          console.log('[worker-milestones-realtime] event:',
-            payload.table, payload.eventType);
-          queryClient.invalidateQueries({
-            queryKey: ['worker-milestones', jobId],
-          });
-        })
-        .subscribe((status, err) => {
-          console.log('[worker-milestones-realtime]', status, err ?? '');
+    const channel = supabase
+      .channel(`worker-milestones-${jobId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'milestones',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
         });
-    })();
-
-    return () => {
-      cancelled = true;
-      if (channel) supabase.removeChannel(channel);
-    };
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'escrow_ledger',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'wallets',
+        filter: `profile_id=eq.${userId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
+        });
+      })
+      .subscribe((status, err) => {
+        console.log('[worker-milestones-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id, jobId, queryClient]);
 
   // ── Submit handler ──────────────────────────────────────────────────────
