@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { MapPin, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,21 +77,41 @@ async function fetchFeedPage({
 export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | "rejected" }) {
   const [selectedCategories, setSelectedCategories] = useState<JobCategory[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
+  const queryClient = useQueryClient();
+  const { user } = useUser();
+
+  // ── Realtime: new open jobs ────────────────────────────────────────────────
+  // Fix C: subscribe to INSERT on jobs (status=eq.open) so new postings appear
+  // in the feed without a hard refresh.
+  // Gate on user?.id so the channel is created AFTER setAuth has run.
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('worker-feed-new-jobs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['worker-feed'] });
+        },
+      )
+      .subscribe((status, err) => {
+        console.log('[worker-feed-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
-    queryKey: ["worker-applied-jobs"],
+    queryKey: ["worker-applied-jobs", user?.id],
     staleTime: 30_000,
+    enabled: !!user?.id,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return new Set<string>();
-
       const { data } = await supabase
         .from("job_applications")
         .select("job_id")
-        .eq("worker_id", user.id);
+        .eq("worker_id", user!.id);
 
       return new Set((data ?? []).map((a) => a.job_id));
     },

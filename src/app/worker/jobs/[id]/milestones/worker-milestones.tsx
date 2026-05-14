@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { submitMilestoneAction } from "@/app/_actions/escrow";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ export function WorkerMilestones({
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["worker-milestones", jobId],
@@ -107,30 +109,49 @@ export function WorkerMilestones({
   });
 
   // ── Realtime ────────────────────────────────────────────────────────────
+  // The singleton client's eager-prime + onAuthStateChange propagates the JWT
+  // to the Realtime transport before any channel is created.
   useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
     const supabase = createClient();
     const channel = supabase
       .channel(`worker-milestones-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "milestones",
-          filter: `job_id=eq.${jobId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({
-            queryKey: ["worker-milestones", jobId],
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [jobId, queryClient]);
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'milestones',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
+        });
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'escrow_ledger',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'wallets',
+        filter: `profile_id=eq.${userId}`,
+      }, (payload) => {
+        console.log('[worker-milestones-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({
+          queryKey: ['worker-milestones', jobId],
+        });
+      })
+      .subscribe((status, err) => {
+        console.log('[worker-milestones-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, jobId, queryClient]);
 
   // ── Submit handler ──────────────────────────────────────────────────────
   function handleSubmit(milestoneId: string) {

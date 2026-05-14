@@ -164,7 +164,7 @@ export function PostJobForm() {
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4 pb-28">
+      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4 pb-36">
         {/* ── Step 1: Basics ── */}
         {step === 1 && (
           <div className="space-y-4">
@@ -191,7 +191,11 @@ export function PostJobForm() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a category">
+                    {watch("category")
+                      ? CATEGORY_LABELS[watch("category")!]
+                      : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {JOB_CATEGORIES.map((cat) => (
@@ -610,7 +614,7 @@ export function PostJobForm() {
       </form>
 
       {/* ── Sticky CTA ── */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
+      <div className="fixed inset-x-0 bottom-14 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
         <div className="flex gap-3">
           {step > 1 && (
             <Button

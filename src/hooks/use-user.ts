@@ -16,6 +16,8 @@ type UseUserResult = {
 export function useUser(): UseUserResult {
   const query = useQuery({
     queryKey: ["current-user"],
+    staleTime: 5 * 60 * 1000,  // user identity stable for 5 min
+    gcTime: 30 * 60 * 1000,    // keep across SPA navigation
     queryFn: async () => {
       const supabase = createClient();
       const {

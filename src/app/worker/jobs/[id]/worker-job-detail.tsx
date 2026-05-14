@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { Send, CheckCircle2, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,13 +44,12 @@ type WorkerJobData = {
   workerKyc: "pending" | "verified" | "rejected";
 };
 
-async function fetchWorkerJobData(jobId: string, workerKyc: "pending" | "verified" | "rejected"): Promise<WorkerJobData> {
+async function fetchWorkerJobData(
+  jobId: string,
+  workerKyc: "pending" | "verified" | "rejected",
+  userId: string,
+): Promise<WorkerJobData> {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
 
   const [jobRes, msRes, matRes, appRes] = await Promise.all([
     supabase
@@ -70,7 +70,7 @@ async function fetchWorkerJobData(jobId: string, workerKyc: "pending" | "verifie
       .from("job_applications")
       .select("id")
       .eq("job_id", jobId)
-      .eq("worker_id", user.id)
+      .eq("worker_id", userId)
       .maybeSingle(),
   ]);
 
@@ -103,12 +103,44 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
   const { id: jobId } = useParams<{ id: string }>();
   const [applyOpen, setApplyOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["worker-job", jobId, workerKyc],
+    queryKey: ["worker-job", jobId, workerKyc, user?.id],
     staleTime: 30_000,
-    queryFn: () => fetchWorkerJobData(jobId, workerKyc),
+    enabled: !!user?.id,
+    queryFn: () => fetchWorkerJobData(jobId, workerKyc, user!.id),
   });
+
+  // ── Realtime: job accept + milestone creation ──────────────────────────────
+  // The singleton client's eager-prime + onAuthStateChange propagates the JWT
+  // to the Realtime transport before any channel is created.
+  useEffect(() => {
+    if (!jobId || !user?.id) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`worker-job-detail-${jobId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'jobs',
+        filter: `id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-job-detail-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'milestones',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[worker-job-detail-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
+      })
+      .subscribe((status, err) => {
+        console.log('[worker-job-detail-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [jobId, user?.id, queryClient]);
 
   function handleApplySuccess() {
     queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
@@ -116,7 +148,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
     queryClient.invalidateQueries({ queryKey: ["worker-applied-jobs"] });
   }
 
-  if (isLoading) return <WorkerJobSkeleton />;
+  if (!user?.id || isLoading) return <WorkerJobSkeleton />;
   if (error || !data) {
     return (
       <div className="rounded-xl border bg-destructive/5 p-6 text-center text-destructive">
@@ -130,7 +162,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
 
   return (
     <>
-      <div className="space-y-6 pb-28">
+      <div className="space-y-6 pb-36">
         {/* Header */}
         <section className="space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -228,7 +260,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
 
       {/* Sticky apply CTA */}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
+        <div className="fixed inset-x-0 bottom-14 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
           {data.hasApplied ? (
             <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 py-3 text-sm font-medium text-emerald-700">
               <CheckCircle2 className="h-4 w-4" />

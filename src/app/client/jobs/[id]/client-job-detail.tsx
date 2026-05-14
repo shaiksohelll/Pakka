@@ -2,6 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@/hooks/use-user";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Users, Calendar, CheckCircle2, Loader2, Shield } from "lucide-react";
@@ -43,7 +44,7 @@ type Application = {
   status: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
   created_at: string;
   worker_name: string;
-  worker_trust_tier: "bronze" | "silver" | "gold";
+  worker_trust_tier: "bronze" | "silver" | "gold" | null;
 };
 
 type Job = {
@@ -89,35 +90,45 @@ async function fetchJobDetail(jobId: string) {
   if (matRes.error) throw matRes.error;
   if (appRes.error) throw appRes.error;
 
-  // Enrich applications with worker name + trust tier via two simple lookups
+  // Enrich applications with worker name + trust tier via SECURITY DEFINER RPC.
+  // Direct .from('profiles').in('id', workerIds) fails RLS — the client can only
+  // read their own profile row, so all other workers return empty and the
+  // fallback "Worker" / "bronze" fires for every card (ADR-0034).
   const workerIds = Array.from(new Set((appRes.data ?? []).map((a) => a.worker_id)));
 
-  const [profilesRes, workerProfilesRes] =
-    workerIds.length === 0
-      ? [{ data: [] as { id: string; full_name: string | null }[], error: null },
-      { data: [] as { profile_id: string; trust_tier: "bronze" | "silver" | "gold" }[], error: null }]
-      : await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", workerIds),
-        supabase.from("worker_profiles").select("profile_id, trust_tier").in("profile_id", workerIds),
-      ]);
+  type WorkerSummary = { id: string; full_name: string | null; trust_tier: string | null };
+  let workerSummaryMap = new Map<string, WorkerSummary>();
 
-  if (profilesRes.error) throw profilesRes.error;
-  if (workerProfilesRes.error) throw workerProfilesRes.error;
+  if (workerIds.length > 0) {
+    const { data: workerSummaries, error: wsErr } = await supabase.rpc(
+      'get_application_worker_summary',
+      { worker_ids: workerIds },
+    );
+    if (wsErr) {
+      console.error('[client-job-detail] worker-summary RPC error:', wsErr);
+      // Degrade gracefully: leave workerSummaryMap empty, cards render fallback names/trust tiers.
+    } else {
+      workerSummaryMap = new Map(
+        (workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]),
+      );
+    }
+  }
 
-  const nameMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name ?? "Worker"]));
-  const tierMap = new Map((workerProfilesRes.data ?? []).map((w) => [w.profile_id, w.trust_tier]));
-
-  const applications: Application[] = (appRes.data ?? []).map((a) => ({
-    id: a.id,
-    worker_id: a.worker_id,
-    bid_amount: Number(a.bid_amount),
-    eta_days: a.eta_days,
-    message: a.message,
-    status: a.status as Application["status"],
-    created_at: a.created_at,
-    worker_name: nameMap.get(a.worker_id) ?? "Worker",
-    worker_trust_tier: (tierMap.get(a.worker_id) ?? "bronze") as Application["worker_trust_tier"],
-  }));
+  const applications: Application[] = (appRes.data ?? []).map((a) => {
+    const ws = workerSummaryMap.get(a.worker_id);
+    return {
+      id: a.id,
+      worker_id: a.worker_id,
+      bid_amount: Number(a.bid_amount),
+      eta_days: a.eta_days,
+      message: a.message,
+      status: a.status as Application["status"],
+      created_at: a.created_at,
+      // Fallbacks only fire for the "row not yet propagated" edge case
+      worker_name: ws?.full_name ?? "Worker",
+      worker_trust_tier: (ws?.trust_tier ?? null) as Application["worker_trust_tier"],
+    };
+  });
 
   return {
     job: {
@@ -142,6 +153,7 @@ export function ClientJobDetail() {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["client-job", jobId],
@@ -149,37 +161,67 @@ export function ClientJobDetail() {
     queryFn: () => fetchJobDetail(jobId),
   });
 
-  // ── Realtime: new applications ────────────────────────────────────────────
+  // ── Realtime: job status changes + applications ───────────────────────────
+  // The singleton client's eager-prime + onAuthStateChange propagates the JWT
+  // to the Realtime transport before any channel is created.
   useEffect(() => {
+    if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
-      .channel(`job-applications-${jobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "job_applications",
-          filter: `job_id=eq.${jobId}`,
-        },
-        async (payload) => {
-          // Fetch worker name for the toast
-          const { data: workerData } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", (payload.new as { worker_id: string }).worker_id)
-            .single();
+      .channel(`client-job-detail-${jobId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'jobs',
+        filter: `id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[client-job-detail-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'job_applications',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[client-job-detail-realtime] event:',
+          payload.table, payload.eventType);
+        // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
+        // blocked by RLS for any non-self row, always returning null and
+        // falling back to the literal "a worker" in the toast. ADR-0034.
+        const workerId = (payload.new as { worker_id: string }).worker_id;
 
-          toast.info(`New application from ${workerData?.full_name ?? "a worker"}!`);
-          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
-        },
-      )
-      .subscribe();
+        // Trigger refresh immediately — DO NOT gate on RPC.
+        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [jobId, queryClient]);
+        // Enrich toast with worker name; failure is non-fatal.
+        Promise.resolve(
+          supabase.rpc('get_application_worker_summary', { worker_ids: [workerId] }),
+        )
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('[client-job-detail-realtime] RPC error:', error);
+              toast.info('Someone just applied!');
+              return;
+            }
+            const name = data?.[0]?.full_name ?? 'Someone';
+            toast.info(`${name} just applied!`);
+          })
+          .catch((err: unknown) => {
+            console.error('[client-job-detail-realtime] RPC rejected:', err);
+            toast.info('Someone just applied!');
+          });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'job_applications',
+        filter: `job_id=eq.${jobId}`,
+      }, (payload) => {
+        console.log('[client-job-detail-realtime] event:',
+          payload.table, payload.eventType);
+        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+      })
+      .subscribe((status, err) => {
+        console.log('[client-job-detail-realtime]', status, err ?? '');
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, jobId, queryClient]);
 
   // ── Accept handler ────────────────────────────────────────────────────────
   function handleAccept(applicationId: string) {
@@ -217,7 +259,7 @@ export function ClientJobDetail() {
           <StatusBadge variant={job.status} />
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span className="capitalize">{CATEGORY_LABELS[job.category] ?? job.category}</span>
+          <span className="text-sm text-muted-foreground">{CATEGORY_LABELS[job.category] ?? job.category}</span>
           <span>·</span>
           <span>{relativeTime(job.created_at)}</span>
         </div>

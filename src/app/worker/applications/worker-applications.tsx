@@ -1,9 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,23 +33,52 @@ const STATUS_GROUPS: { label: string; statuses: AppStatus[] }[] = [
 ];
 
 export function WorkerApplications() {
+  const queryClient = useQueryClient();
+  // Shared cache — one getUser() network call for the whole 5-min window,
+  // deduped across every component on this route via queryKey ["current-user"].
+  const { user } = useUser();
+
+  // ── Realtime: application status changes ─────────────────────────────────
+  // Subscribe synchronously once user resolves — no isMounted / async race
+  // because user.id arrives as a stable hook value, not a Promise.
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    const channelName = `worker-applications-${user.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'job_applications',
+          filter: `worker_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['worker-applications'] });
+        },
+      )
+      .subscribe((status, err) => {
+        console.log(`[${channelName}]`, status, err ?? '');
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, queryClient]);
+
   const { data: applications, isLoading, error } = useQuery({
-    queryKey: ["worker-applications"],
+    queryKey: ["worker-applications", user?.id],
     staleTime: 10_000,
+    enabled: !!user?.id,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       const { data, error } = await supabase
         .from("job_applications")
         .select(`
           id, job_id, bid_amount, eta_days, message, status, created_at,
           jobs!job_applications_job_id_fkey(title, category, total_budget)
         `)
-        .eq("worker_id", user.id)
+        .eq("worker_id", user!.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -125,7 +156,7 @@ export function WorkerApplications() {
                     <div className="flex-1 space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge variant={app.status} />
-                        <span className="text-xs text-muted-foreground capitalize">
+                        <span className="text-xs text-muted-foreground">
                           {CATEGORY_LABELS[app.job_category] ?? app.job_category}
                         </span>
                       </div>

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Plus, Briefcase, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/use-user";
 import { formatInr, relativeTime, CATEGORY_LABELS } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -33,16 +34,14 @@ const FILTER_TABS: { label: string; value: JobStatus | "all" }[] = [
 
 export function ClientJobList() {
   const [activeFilter, setActiveFilter] = useState<JobStatus | "all">("all");
+  const { user } = useUser();
 
   const { data: jobs, isLoading, error } = useQuery({
-    queryKey: ["client-jobs"],
+    queryKey: ["client-jobs", user?.id],
     staleTime: 10_000,
+    enabled: !!user?.id,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
         .from("jobs")
@@ -51,7 +50,7 @@ export function ClientJobList() {
           milestones(id),
           job_applications(id)
         `)
-        .eq("client_id", user.id)
+        .eq("client_id", user!.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
