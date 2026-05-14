@@ -30,8 +30,9 @@ GRANT EXECUTE ON FUNCTION public.is_admin() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_job_participant(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_worker() TO PUBLIC;
 
--- Bucket 5: read helpers → restore PUBLIC
-GRANT EXECUTE ON FUNCTION public.get_application_worker_summary(uuid[]) TO PUBLIC;
+-- Bucket 5: read helpers → restore pre-20260514111300 privileges
+REVOKE EXECUTE ON FUNCTION public.get_application_worker_summary(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_application_worker_summary(uuid[]) TO authenticated;
 
 -- Bucket 6: trigger functions → restore PUBLIC
 GRANT EXECUTE ON FUNCTION public.guard_disputes_status() TO PUBLIC;
