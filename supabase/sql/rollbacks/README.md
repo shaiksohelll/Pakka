@@ -28,3 +28,6 @@ authored (NOT the time of any emergency execution).
   41 policy retargets, trigger function lockdowns).
 - `20260514164100_prevent_self_application_rollback.sql`
   Reverses PR #3 self-application RLS guard.
+- `20260514175600_coderabbit_pr1_correctness_rollback.sql`
+  Reverses PR #4 CodeRabbit fixes (jobs UPDATE policy restriction,
+  trigger WHEN clause).
