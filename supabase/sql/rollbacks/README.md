@@ -31,3 +31,5 @@ authored (NOT the time of any emergency execution).
 - `20260514175600_coderabbit_pr1_correctness_rollback.sql`
   Reverses PR #4 CodeRabbit fixes (jobs UPDATE policy restriction,
   trigger WHEN clause).
+- `20260515183100_coderabbit_pr1_perf_rollback.sql` — Reverts perf migration (RLS init-plan wraps + 3 FK indexes). Not applied.
+- `20260515205600_coderabbit_pr1_perf_cleanup_rollback.sql` — Reverts cleanup (recreates duplicate index, reverts index renames). Not applied.
