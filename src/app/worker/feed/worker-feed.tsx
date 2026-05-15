@@ -88,13 +88,21 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
-      .channel('worker-feed-new-jobs')
+      .channel('worker-feed-jobs-changes')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['worker-feed'] });
-        },
+        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'jobs' },
+        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'jobs' },
+        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
       )
       .subscribe((status, err) => {
         console.log('[worker-feed-realtime]', status, err ?? '');
