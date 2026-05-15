@@ -129,6 +129,10 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     useInfiniteQuery({
       queryKey: ["worker-feed", selectedCategories, sort],
       staleTime: 30_000,
+      refetchOnWindowFocus: true,
+      refetchInterval: 60_000, // RLS-aware backstop: realtime UPDATE doesn't fire
+      // when a job moves off 'open' (worker loses SELECT
+      // access via jobs_select_visible). Poll every 60s.
       queryFn: ({ pageParam }) =>
         fetchFeedPage({ pageParam: pageParam as number, categories: selectedCategories, sort }),
       initialPageParam: 0,
