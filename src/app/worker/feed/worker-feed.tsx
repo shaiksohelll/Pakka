@@ -96,7 +96,7 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'jobs' },
+        { event: 'UPDATE', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
         () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
       )
       .on(
