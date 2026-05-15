@@ -33,3 +33,4 @@ authored (NOT the time of any emergency execution).
   trigger WHEN clause).
 - `20260515183100_coderabbit_pr1_perf_rollback.sql` — Reverts perf migration (RLS init-plan wraps + 3 FK indexes). Not applied.
 - `20260515205600_coderabbit_pr1_perf_cleanup_rollback.sql` — Reverts cleanup (recreates duplicate index, reverts index renames). Not applied.
+- `20260515200100_request_account_deletion_rpc_rollback.sql` — Rollback for request_account_deletion RPC (drops function, keeps additive columns).
