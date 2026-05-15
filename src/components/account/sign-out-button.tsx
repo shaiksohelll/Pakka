@@ -49,7 +49,7 @@ export function SignOutButton() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Sign out of Pakka?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            You'll be returned to the login screen.
+                            You&apos;ll be returned to the login screen.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
