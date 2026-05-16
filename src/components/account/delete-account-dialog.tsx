@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     Dialog,
     DialogContent,
@@ -11,20 +14,26 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 export function DeleteAccountDialog() {
-    const router = useRouter();
     const supabase = createClient();
+    const router = useRouter();
     const [open, setOpen] = useState(false);
     const [confirm, setConfirm] = useState("");
     const [reason, setReason] = useState("");
     const [loading, setLoading] = useState(false);
 
-    async function handleRequest() {
+    useEffect(() => {
+        if (!open) {
+            setConfirm("");
+            setReason("");
+            setLoading(false);
+        }
+    }, [open]);
+
+    async function handleDelete() {
         if (confirm !== "DELETE") {
             toast.error('Type "DELETE" to confirm');
             return;
@@ -35,34 +44,39 @@ export function DeleteAccountDialog() {
         });
         if (error) {
             setLoading(false);
-            toast.error("Request failed: " + error.message);
+            toast.error("Could not submit deletion request: " + error.message);
             return;
         }
-        await supabase.auth.signOut();
+        const { error: signOutError } = await supabase.auth.signOut();
         setLoading(false);
+        if (signOutError) {
+            toast.error(
+                "Deletion requested, but sign-out failed: " + signOutError.message,
+            );
+            return;
+        }
         toast.success(
-            "Account deletion requested. Our team will process it within 7 days."
+            "Account deletion requested. Our team will process it within 7 days.",
         );
-        router.push("/");
+        router.push("/login");
     }
 
     return (
         <>
             <Button
                 variant="destructive"
-                className="w-full justify-start"
+                className="w-full justify-start gap-2"
                 onClick={() => setOpen(true)}
             >
+                <Trash2 className="h-4 w-4" />
                 Delete account
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Delete your Pakka account?</DialogTitle>
+                        <DialogTitle>Delete account?</DialogTitle>
                         <DialogDescription>
-                            This sends a deletion request to our team. Your data will be removed
-                            within 7 days. Open jobs and locked funds may delay processing. This
-                            action is irreversible once processed.
+                            This submits a deletion request. Our team processes it within 7 days. You will be signed out immediately.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -85,12 +99,12 @@ export function DeleteAccountDialog() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpen(false)}>
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
                             Cancel
                         </Button>
                         <Button
                             variant="destructive"
-                            onClick={handleRequest}
+                            onClick={handleDelete}
                             disabled={loading || confirm !== "DELETE"}
                         >
                             {loading ? "Submitting..." : "Request deletion"}

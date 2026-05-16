@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SignOutButton } from "@/components/account/sign-out-button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { createClient } from "@/lib/supabase/client";
 import { EditProfileDialog } from "@/components/account/edit-profile-dialog";
 import { ChangePhoneDialog } from "@/components/account/change-phone-dialog";
+import { SignOutButton } from "@/components/account/sign-out-button";
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
-import { createClient } from "@/lib/supabase/client";
 
 type Profile = {
     id: string;
@@ -18,26 +20,34 @@ type Profile = {
 };
 
 export default function ClientAccountPage() {
+    const router = useRouter();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     async function load() {
         const supabase = createClient();
         setLoading(true);
+        setError(null);
         const {
             data: { user },
         } = await supabase.auth.getUser();
         if (!user) {
-            setProfile(null);
             setLoading(false);
+            router.replace("/login");
             return;
         }
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
             .from("profiles")
             .select("id, full_name, phone, city, role, created_at")
             .eq("id", user.id)
             .single();
-        if (!error && data) setProfile(data as Profile);
+        if (fetchError) {
+            setError(fetchError.message);
+            setLoading(false);
+            return;
+        }
+        setProfile(data as Profile);
         setLoading(false);
     }
 
@@ -47,20 +57,38 @@ export default function ClientAccountPage() {
 
     if (loading) {
         return (
-            <main className="mx-auto max-w-[640px] px-4 py-8">
-                <p className="text-sm text-muted-foreground">Loading…</p>
-            </main>
-        );
-    }
-    if (!profile) {
-        return (
-            <main className="mx-auto max-w-[640px] px-4 py-8">
-                <p className="text-sm text-destructive">Not signed in.</p>
+            <main className="mx-auto max-w-[640px] px-4 py-8 pb-20 space-y-6">
+                <h1 className="text-2xl font-bold text-primary">Account</h1>
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-24 w-full" />
             </main>
         );
     }
 
-    const profileDefaults = { full_name: profile.full_name ?? "", city: profile.city ?? "" };
+    if (error) {
+        return (
+            <main className="mx-auto max-w-[640px] px-4 py-8 pb-20 space-y-6">
+                <h1 className="text-2xl font-bold text-primary">Account</h1>
+                <Card>
+                    <CardContent className="py-8 text-center space-y-3">
+                        <p className="text-destructive font-medium">Could not load your account</p>
+                        <p className="text-muted-foreground text-sm">{error}</p>
+                        <button className="underline text-sm" onClick={() => void load()}>
+                            Retry
+                        </button>
+                    </CardContent>
+                </Card>
+            </main>
+        );
+    }
+
+    if (!profile) return null;
+
+    const profileDefaults = {
+        full_name: profile.full_name ?? "",
+        city: profile.city ?? "",
+    };
 
     return (
         <main className="mx-auto max-w-[640px] px-4 py-8 pb-20 space-y-6">
@@ -85,7 +113,7 @@ export default function ClientAccountPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                     <EditProfileDialog defaults={profileDefaults} onSaved={load} />
-                    <ChangePhoneDialog currentPhone={profile.phone} onChanged={load} />
+                    <ChangePhoneDialog currentPhone={profile.phone ?? ""} onChanged={load} />
                     <SignOutButton />
                 </CardContent>
             </Card>

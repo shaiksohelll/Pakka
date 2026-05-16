@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     Dialog,
     DialogContent,
@@ -10,16 +13,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+
+// Matches app-wide phoneSchema in src/lib/schemas/auth.ts: 10 digits starting 6-9, with +91 prefix.
+const INDIAN_PHONE_RE = /^\+91[6-9]\d{9}$/;
 
 export function ChangePhoneDialog({
     currentPhone,
     onChanged,
 }: {
-    currentPhone: string | null;
+    currentPhone: string;
     onChanged: () => void;
 }) {
     const supabase = createClient();
@@ -29,59 +33,72 @@ export function ChangePhoneDialog({
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
 
-    function resetState() {
-        setStep("phone");
-        setNewPhone("");
-        setOtp("");
-    }
+    useEffect(() => {
+        if (!open) {
+            setStep("phone");
+            setNewPhone("");
+            setOtp("");
+            setLoading(false);
+        }
+    }, [open]);
 
     async function requestOtp() {
-        if (!/^\+91\d{10}$/.test(newPhone)) {
-            toast.error("Enter phone in format +91XXXXXXXXXX");
+        if (!INDIAN_PHONE_RE.test(newPhone)) {
+            toast.error("Enter a valid Indian phone number (+91 followed by 10 digits)");
             return;
         }
         if (newPhone === currentPhone) {
-            toast.error("Same as current number");
+            toast.error("This is already your current phone number");
             return;
         }
         setLoading(true);
         const { error } = await supabase.auth.updateUser({ phone: newPhone });
         setLoading(false);
         if (error) {
-            toast.error(error.message);
+            toast.error("Could not send OTP: " + error.message);
             return;
         }
-        toast.success("OTP sent to " + newPhone);
         setStep("otp");
+        toast.success("OTP sent");
     }
 
     async function verifyOtp() {
-        if (!/^\d{6}$/.test(otp)) {
+        if (otp.length !== 6) {
             toast.error("Enter the 6-digit OTP");
             return;
         }
         setLoading(true);
-        const { error } = await supabase.auth.verifyOtp({
+        const { error: verifyError } = await supabase.auth.verifyOtp({
             phone: newPhone,
             token: otp,
             type: "phone_change",
         });
-        if (error) {
+        if (verifyError) {
             setLoading(false);
-            toast.error(error.message);
+            toast.error("OTP verification failed: " + verifyError.message);
             return;
         }
-        // Keep profiles.phone in sync (UNIQUE constraint).
         const {
             data: { user },
         } = await supabase.auth.getUser();
-        if (user) {
-            await supabase.from("profiles").update({ phone: newPhone }).eq("id", user.id);
+        if (!user) {
+            setLoading(false);
+            toast.error("Session lost. Please sign in again.");
+            return;
         }
+        const { error: profileError } = await supabase
+            .from("profiles")
+            .update({ phone: newPhone })
+            .eq("id", user.id);
         setLoading(false);
+        if (profileError) {
+            toast.error(
+                "Phone changed but profile mirror failed: " + profileError.message,
+            );
+            return;
+        }
         toast.success("Phone updated");
         setOpen(false);
-        resetState();
         onChanged();
     }
 
@@ -89,72 +106,61 @@ export function ChangePhoneDialog({
         <>
             <Button
                 variant="outline"
-                className="w-full justify-start"
+                className="w-full justify-start gap-2"
                 onClick={() => setOpen(true)}
             >
-                Change phone number
+                <Phone className="h-4 w-4" />
+                Change phone
             </Button>
-            <Dialog
-                open={open}
-                onOpenChange={(o) => {
-                    setOpen(o);
-                    if (!o) resetState();
-                }}
-            >
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Change phone number</DialogTitle>
+                        <DialogTitle>Change phone</DialogTitle>
                         <DialogDescription>
                             {step === "phone"
-                                ? "Enter your new phone number. We'll send a 6-digit OTP."
+                                ? "Enter your new phone number. We&apos;ll send a 6-digit OTP."
                                 : `Enter the OTP sent to ${newPhone}.`}
                         </DialogDescription>
                     </DialogHeader>
+
                     {step === "phone" ? (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="new-phone">New phone number</Label>
-                                <Input
-                                    id="new-phone"
-                                    placeholder="+919876500001"
-                                    value={newPhone}
-                                    onChange={(e) => setNewPhone(e.target.value)}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Current: {currentPhone ?? "—"}
-                                </p>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setOpen(false)}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={requestOtp} disabled={loading}>
-                                    {loading ? "Sending..." : "Send OTP"}
-                                </Button>
-                            </DialogFooter>
+                        <div className="space-y-2">
+                            <Label htmlFor="newPhone">New phone</Label>
+                            <Input
+                                id="newPhone"
+                                inputMode="tel"
+                                placeholder="+919876500001"
+                                value={newPhone}
+                                onChange={(e) => setNewPhone(e.target.value)}
+                            />
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="otp">6-digit OTP</Label>
-                                <Input
-                                    id="otp"
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value)}
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setStep("phone")}>
-                                    Back
-                                </Button>
-                                <Button onClick={verifyOtp} disabled={loading}>
-                                    {loading ? "Verifying..." : "Verify"}
-                                </Button>
-                            </DialogFooter>
+                        <div className="space-y-2">
+                            <Label htmlFor="otp">OTP</Label>
+                            <Input
+                                id="otp"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value)}
+                            />
                         </div>
                     )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+                            Cancel
+                        </Button>
+                        {step === "phone" ? (
+                            <Button onClick={requestOtp} disabled={loading}>
+                                {loading ? "Sending..." : "Send OTP"}
+                            </Button>
+                        ) : (
+                            <Button onClick={verifyOtp} disabled={loading || otp.length !== 6}>
+                                {loading ? "Verifying..." : "Verify and update"}
+                            </Button>
+                        )}
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
