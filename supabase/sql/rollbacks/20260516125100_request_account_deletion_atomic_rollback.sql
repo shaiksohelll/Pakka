@@ -1,7 +1,7 @@
 -- Rollback: restore the non-atomic SELECT-then-UPDATE version.
 -- Only use if the atomic version causes unforeseen issues.
 
-CREATE OR REPLACE FUNCTION public.request_account_deletion(reason text)
+CREATE OR REPLACE FUNCTION public.request_account_deletion(reason text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
