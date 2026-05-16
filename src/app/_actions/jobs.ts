@@ -135,7 +135,21 @@ export async function applyToJobAction(
       if (error.code === "23505") {
         return { success: false, error: "You have already applied to this job." };
       }
-      return { success: false, error: error.message };
+
+      const message = error.message.toLowerCase();
+      const isPolicyError =
+        error.code === "42501" ||
+        message.includes("row-level security") ||
+        message.includes("violates row-level security");
+
+      if (isPolicyError) {
+        return {
+          success: false,
+          error: "You can't apply to this job. It may be closed or posted by your account.",
+        };
+      }
+
+      return { success: false, error: "Could not send application. Please try again." };
     }
 
     revalidatePath(`/worker/jobs/${job_id}`);
