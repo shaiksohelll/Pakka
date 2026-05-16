@@ -4,7 +4,7 @@
 - **Date:** 2026-05-16
 - **Deciders:** Sohel (founder)
 - **Supersedes:** —
-- **Related:** ADR 0001 (escrow state machine in Postgres), `docs/adr/state-machine.md`, `docs/adr/data-model.md`
+- **Related:** ADR 0001 (escrow state machine in Postgres), `docs/state-machine.md`, `docs/data-model.md`
 
 ## Context
 
@@ -53,7 +53,7 @@ Two designs were considered:
 - `apply_to_job(...)`
 - `accept_application(...)`
 - `cancel_job(...)`
-- (full list in the function definitions inventory)
+
 
 ## Consequences
 
@@ -67,7 +67,7 @@ Two designs were considered:
 ### Negative (and accepted)
 
 - **Supabase performance advisor flags 13× "authenticated can execute SECURITY DEFINER functions."** This is the advisor flagging this exact ADR being implemented. Accepted permanently; suppress in future advisor triage.
-- **More PL/pgSQL to maintain** than a pure client-SDK approach. Mitigated by keeping each RPC small and pairing it with a forward migration + rollback file (see ADR 0004).
+- **More PL/pgSQL to maintain** than a pure client-SDK approach. Mitigated by keeping each RPC small and pairing it with a forward migration + rollback file (see `supabase/sql/rollbacks/README.md`).
 - **Harder local testing.** Need DB-level fixtures rather than mocking a client. Mitigated by deterministic test data + a seeded test schema (Phase 5 work).
 - **Cannot bulk-update from the client.** A future admin tool that needs bulk operations must implement a dedicated bulk RPC, not loop `update()` calls.
 
@@ -95,7 +95,7 @@ When adding a new RPC under this ADR:
 4. State transitions verify the source state (e.g. `WHERE status = 'in_progress'` in the UPDATE) and check `FOUND` or use `RETURNING` to detect no-op writes.
 5. Mutations are idempotent under retry. If a duplicate call is meaningless (e.g. "request deletion"), use atomic guards (`UPDATE … WHERE deletion_requested_at IS NULL RETURNING id`).
 6. After definition: `REVOKE ALL ON FUNCTION public.<fn>(...) FROM PUBLIC; REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM anon; GRANT EXECUTE ON FUNCTION public.<fn>(...) TO authenticated;`
-7. Forward migration accompanied by a rollback file in `supabase/sql/rollbacks/` (see ADR 0004).
+7. Forward migration accompanied by a rollback file in `supabase/sql/rollbacks/` (see `supabase/sql/rollbacks/README.md` for naming and emergency-execution procedure).
 
 ## Verification
 
@@ -106,7 +106,9 @@ When adding a new RPC under this ADR:
 ## References
 
 - ADR 0001 — Escrow state machine in Postgres
-- `supabase/migrations/20260514111400_security_hardening.sql` — initial anon EXECUTE revokes + RLS policy retargets
-- `supabase/migrations/20260514164100_prevent_self_application.sql` — example of business rule in RPC
+- `supabase/migrations/20260514111300_security_hardening.sql` — initial anon EXECUTE revokes + RLS policy retargets
+- `supabase/migrations/20260514113000_security_hardening_followup.sql` — security hardening follow-up
+- `supabase/migrations/20260514164000_prevent_self_application.sql` — example of business rule in RPC
 - `supabase/migrations/20260516125000_request_account_deletion_atomic.sql` — atomic idempotency pattern
 - `supabase/migrations/20260516131000_secure_request_account_deletion_revoke_anon.sql` — defense-in-depth anon revoke pattern
+- `supabase/sql/rollbacks/README.md` — rollback file naming and emergency-execution procedure
