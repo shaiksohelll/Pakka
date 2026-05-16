@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.idx_disputes_resolved_by;

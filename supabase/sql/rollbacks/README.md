@@ -35,3 +35,5 @@ authored (NOT the time of any emergency execution).
 - `20260515205600_coderabbit_pr1_perf_cleanup_rollback.sql` — Reverts cleanup (recreates duplicate index, reverts index renames). Not applied.
 - `20260515200100_request_account_deletion_rpc_rollback.sql` — Rollback for request_account_deletion RPC (drops function, keeps additive columns).
 - `20260516125100_request_account_deletion_atomic_rollback.sql` — Restore non-atomic idempotency check (race-prone).
+- `20260516131100_secure_request_account_deletion_revoke_anon_rollback.sql` — Restore anon EXECUTE on request_account_deletion (security regression).
+- `20260516131600_disputes_resolved_by_fk_index_rollback.sql` — Drop covering index on disputes.resolved_by.
