@@ -35,6 +35,12 @@ const STEPS = [
 
 type FieldError = { message?: string };
 
+// Defocus number inputs on mouse-wheel / trackpad scroll so the wheel
+// doesn't silently increment/decrement the value while the input has focus.
+const blurOnWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+  e.currentTarget.blur();
+};
+
 export function PostJobForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -84,7 +90,7 @@ export function PostJobForm() {
   const milestoneSum = milestones.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
   const budgetDiff = totalBudget - milestoneSum;
 
-  // ── Geo ───────────────────────────────────────────────────────────────────
+  // ── Geo ────────────────────────────────────────────────────────────────────────
   const requestGeo = useCallback(() => {
     if (!navigator.geolocation) {
       toast.error("Geolocation not supported by your browser.");
@@ -105,7 +111,7 @@ export function PostJobForm() {
     );
   }, [setValue]);
 
-  // ── Step navigation ───────────────────────────────────────────────────────
+  // ── Step navigation ────────────────────────────────────────────────────────────────
   const STEP_FIELDS: Record<number, (keyof PostJobInput)[]> = {
     1: ["title", "category", "description"],
     2: ["location_text"],
@@ -127,7 +133,7 @@ export function PostJobForm() {
     setStep((s) => Math.max(s - 1, 1));
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────────────────────────────
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
       const result = await postJobAction(values);
@@ -169,7 +175,6 @@ export function PostJobForm() {
         {step === 1 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-primary">Job Basics</h2>
-
             <div className="space-y-1.5">
               <Label htmlFor="title">Job Title</Label>
               <Input
@@ -232,7 +237,6 @@ export function PostJobForm() {
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-primary">Job Location</h2>
-
             <div className="space-y-1.5">
               <Label htmlFor="location_text">City / Area</Label>
               <Input
@@ -244,12 +248,10 @@ export function PostJobForm() {
                 <p className="text-xs text-destructive">{errors.location_text.message}</p>
               )}
             </div>
-
             <Separator />
             <p className="text-sm text-muted-foreground">
               Optionally share your precise location so nearby workers can find you.
             </p>
-
             <Button
               type="button"
               variant="outline"
@@ -264,13 +266,11 @@ export function PostJobForm() {
               )}
               {isGeoLoading ? "Getting location…" : "Use My Location"}
             </Button>
-
             {watch("lat") && watch("lng") && (
               <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
                 📍 Lat {watch("lat")?.toFixed(5)}, Lng {watch("lng")?.toFixed(5)}
               </p>
             )}
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="lat">Latitude (optional)</Label>
@@ -280,6 +280,7 @@ export function PostJobForm() {
                   step="0.000001"
                   placeholder="17.385044"
                   value={watch("lat") ?? ""}
+                  onWheel={blurOnWheel}
                   onChange={(e) =>
                     setValue("lat", e.target.value ? parseFloat(e.target.value) : undefined, {
                       shouldValidate: true,
@@ -295,6 +296,7 @@ export function PostJobForm() {
                   step="0.000001"
                   placeholder="78.486671"
                   value={watch("lng") ?? ""}
+                  onWheel={blurOnWheel}
                   onChange={(e) =>
                     setValue("lng", e.target.value ? parseFloat(e.target.value) : undefined, {
                       shouldValidate: true,
@@ -310,7 +312,6 @@ export function PostJobForm() {
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-primary">Budget</h2>
-
             <div className="space-y-1.5">
               <Label htmlFor="total_budget">Total Budget (INR)</Label>
               <div className="relative">
@@ -323,6 +324,7 @@ export function PostJobForm() {
                   className="pl-7"
                   placeholder="50000"
                   value={watch("total_budget") ?? ""}
+                  onWheel={blurOnWheel}
                   onChange={(e) =>
                     setValue(
                       "total_budget",
@@ -421,6 +423,7 @@ export function PostJobForm() {
                       className="pl-7"
                       placeholder="10000"
                       value={watch(`milestones.${i}.amount`) ?? ""}
+                      onWheel={blurOnWheel}
                       onChange={(e) =>
                         setValue(
                           `milestones.${i}.amount`,
@@ -452,7 +455,6 @@ export function PostJobForm() {
                 Add Milestone
               </Button>
             )}
-
             {errors.milestones?.root && (
               <p className="text-xs text-destructive">{errors.milestones.root.message}</p>
             )}
@@ -510,6 +512,7 @@ export function PostJobForm() {
                       step="0.01"
                       placeholder="10"
                       value={watch(`materials.${i}.qty`) ?? ""}
+                      onWheel={blurOnWheel}
                       onChange={(e) =>
                         setValue(
                           `materials.${i}.qty`,
@@ -531,6 +534,7 @@ export function PostJobForm() {
                         className="pl-7"
                         placeholder="500"
                         value={watch(`materials.${i}.amount`) ?? ""}
+                        onWheel={blurOnWheel}
                         onChange={(e) =>
                           setValue(
                             `materials.${i}.amount`,
