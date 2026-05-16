@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatInr, relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────────
 type MilestoneStatus =
   | "pending"
   | "funded"
@@ -49,7 +49,7 @@ type WalletInfo = {
   locked_balance: number;
 };
 
-// ── Fetcher ───────────────────────────────────────────────────────────────────
+// ── Fetcher ────────────────────────────────────────────────────────────────────────
 async function fetchWorkerMilestones(jobId: string) {
   const supabase = createClient();
 
@@ -84,14 +84,14 @@ async function fetchWorkerMilestones(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-          available_balance: Number(walletRes.data.available_balance),
-          locked_balance: Number(walletRes.data.locked_balance),
-        }
+        available_balance: Number(walletRes.data.available_balance),
+        locked_balance: Number(walletRes.data.locked_balance),
+      }
       : ({ available_balance: 0, locked_balance: 0 } as WalletInfo),
   };
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ──────────────────────────────────────────────────────────────────────
 export function WorkerMilestones({
   workerKyc,
 }: {
@@ -99,8 +99,12 @@ export function WorkerMilestones({
 }) {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const [isPending, startTransition] = useTransition();
   const { user } = useUser();
+
+  // Synchronous gate (catches double-clicks before React re-renders) +
+  // per-milestone in-flight state (so only the clicked button spins).
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const [inFlight, setInFlight] = useState<Set<string>>(new Set());
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["worker-milestones", jobId],
@@ -108,7 +112,7 @@ export function WorkerMilestones({
     queryFn: () => fetchWorkerMilestones(jobId),
   });
 
-  // ── Realtime ────────────────────────────────────────────────────────────
+  // ── Realtime ─────────────────────────────────────────────────────────────────
   // The singleton client's eager-prime + onAuthStateChange propagates the JWT
   // to the Realtime transport before any channel is created.
   useEffect(() => {
@@ -150,28 +154,37 @@ export function WorkerMilestones({
       .subscribe((status, err) => {
         console.log('[worker-milestones-realtime]', status, err ?? '');
       });
+
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, jobId, queryClient]);
 
-  // ── Submit handler ──────────────────────────────────────────────────────
-  function handleSubmit(milestoneId: string) {
-    startTransition(async () => {
+  // ── Submit handler ─────────────────────────────────────────────────────────────────
+  async function handleSubmit(milestoneId: string) {
+    // Synchronous gate: a second click on the same milestone returns
+    // immediately, before React has a chance to re-render with the disabled
+    // attribute. This is the actual race fix.
+    if (inFlightRef.current.has(milestoneId)) return;
+    inFlightRef.current.add(milestoneId);
+    setInFlight(new Set(inFlightRef.current));
+
+    try {
       const result = await submitMilestoneAction({
         milestone_id: milestoneId,
         idempotency_key: crypto.randomUUID(),
       });
+
       if (!result.success) {
         toast.error(result.error);
-        queryClient.invalidateQueries({
-          queryKey: ["worker-milestones", jobId],
-        });
-        return;
+      } else {
+        toast.success("Milestone submitted for review!");
       }
-      toast.success("Milestone submitted for review!");
       queryClient.invalidateQueries({
         queryKey: ["worker-milestones", jobId],
       });
-    });
+    } finally {
+      inFlightRef.current.delete(milestoneId);
+      setInFlight(new Set(inFlightRef.current));
+    }
   }
 
   if (isLoading) return <WorkerMilestonesSkeleton />;
@@ -218,104 +231,103 @@ export function WorkerMilestones({
           Milestones ({milestones.length})
         </h2>
 
-        {milestones.map((m) => (
-          <div
-            key={m.id}
-            className={cn(
-              "rounded-xl border bg-card p-4 space-y-3 transition-all",
-              m.status === "disputed" && "border-red-200 bg-red-50/30",
-              (m.status === "approved" || m.status === "released") &&
+        {milestones.map((m) => {
+          const isInFlight = inFlight.has(m.id);
+          return (
+            <div
+              key={m.id}
+              className={cn(
+                "rounded-xl border bg-card p-4 space-y-3 transition-all",
+                m.status === "disputed" && "border-red-200 bg-red-50/30",
+                (m.status === "approved" || m.status === "released") &&
                 "border-emerald-200 bg-emerald-50/30",
-              m.status === "funded" && "border-blue-200 bg-blue-50/30",
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-0.5 flex-1">
-                <p className="text-sm font-semibold">
-                  {m.sequence}. {m.title}
-                </p>
-                {m.description && (
-                  <p className="text-xs text-muted-foreground">
-                    {m.description}
+                m.status === "funded" && "border-blue-200 bg-blue-50/30",
+              )}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5 flex-1">
+                  <p className="text-sm font-semibold">
+                    {m.sequence}. {m.title}
                   </p>
-                )}
+                  {m.description && (
+                    <p className="text-xs text-muted-foreground">
+                      {m.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-bold">{formatInr(m.amount)}</span>
+                  <StatusBadge variant={m.status} />
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm font-bold">{formatInr(m.amount)}</span>
-                <StatusBadge variant={m.status} />
-              </div>
+
+              {/* Status messages */}
+              {m.status === "pending" && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Waiting for client to fund this milestone.</span>
+                </div>
+              )}
+              {m.status === "funded" && workerKyc !== "verified" && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Complete KYC verification to submit milestones.</span>
+                </div>
+              )}
+              {m.status === "submitted" && m.auto_release_at && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}.
+                    Auto-releases if client takes no action.
+                  </span>
+                </div>
+              )}
+              {m.status === "disputed" && (
+                <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                  <Shield className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Disputed by client. Under review. Funds remain locked.
+                  </span>
+                </div>
+              )}
+              {(m.status === "approved" || m.status === "released") && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>
+                    Released to your wallet
+                    {m.approved_at ? ` · ${relativeTime(m.approved_at)}` : ""}
+                  </span>
+                </div>
+              )}
+
+              {/* Submit button */}
+              {m.status === "funded" && workerKyc === "verified" && (
+                <Button
+                  size="sm"
+                  className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isInFlight}
+                  onClick={() => handleSubmit(m.id)}
+                >
+                  {isInFlight ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  {/* TODO: Phase 5 — proof upload UI */}
+                  Submit for Review
+                </Button>
+              )}
             </div>
-
-            {/* Status messages */}
-            {m.status === "pending" && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <Lock className="h-3.5 w-3.5" />
-                <span>Waiting for client to fund this milestone.</span>
-              </div>
-            )}
-
-            {m.status === "funded" && workerKyc !== "verified" && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-                <Shield className="h-3.5 w-3.5" />
-                <span>Complete KYC verification to submit milestones.</span>
-              </div>
-            )}
-
-            {m.status === "submitted" && m.auto_release_at && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-                <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}.
-                  Auto-releases if client takes no action.
-                </span>
-              </div>
-            )}
-
-            {m.status === "disputed" && (
-              <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
-                <Shield className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Disputed by client. Under review. Funds remain locked.
-                </span>
-              </div>
-            )}
-
-            {(m.status === "approved" || m.status === "released") && (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-700">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>
-                  Released to your wallet
-                  {m.approved_at ? ` · ${relativeTime(m.approved_at)}` : ""}
-                </span>
-              </div>
-            )}
-
-            {/* Submit button */}
-            {m.status === "funded" && workerKyc === "verified" && (
-              <Button
-                size="sm"
-                className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-                disabled={isPending}
-                onClick={() => handleSubmit(m.id)}
-              >
-                {isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                {/* TODO: Phase 5 — proof upload UI */}
-                Submit for Review
-              </Button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </section>
     </div>
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
+// ── Skeleton ─────────────────────────────────────────────────────────────────────────
 function WorkerMilestonesSkeleton() {
   return (
     <div className="space-y-6">
