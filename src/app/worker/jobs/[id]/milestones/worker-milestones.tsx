@@ -106,6 +106,17 @@ export function WorkerMilestones({
   const inFlightRef = useRef<Set<string>>(new Set());
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
 
+  // Mounted flag: used to skip setState in handleSubmit's finally block if
+  // the component unmounts mid-flight (avoids React's "setState on unmounted
+  // component" warning).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["worker-milestones", jobId],
     staleTime: 10_000,
@@ -113,8 +124,6 @@ export function WorkerMilestones({
   });
 
   // ── Realtime ─────────────────────────────────────────────────────────────────
-  // The singleton client's eager-prime + onAuthStateChange propagates the JWT
-  // to the Realtime transport before any channel is created.
   useEffect(() => {
     if (!user?.id) return;
     const userId = user.id;
@@ -181,9 +190,24 @@ export function WorkerMilestones({
       queryClient.invalidateQueries({
         queryKey: ["worker-milestones", jobId],
       });
+    } catch (err) {
+      // Thrown errors (network, server crash). Return-shape errors are
+      // handled in the `if (!result.success)` branch above.
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Submission failed. Please try again.";
+      toast.error(message);
+      queryClient.invalidateQueries({
+        queryKey: ["worker-milestones", jobId],
+      });
     } finally {
       inFlightRef.current.delete(milestoneId);
-      setInFlight(new Set(inFlightRef.current));
+      // Skip the React state update if the component unmounted while the
+      // request was in flight. The ref cleanup above still runs.
+      if (mountedRef.current) {
+        setInFlight(new Set(inFlightRef.current));
+      }
     }
   }
 
