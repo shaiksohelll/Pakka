@@ -1,7 +1,7 @@
 -- Rollback: restore the original non-idempotent version of request_account_deletion.
 -- Only use if the idempotency guard causes unforeseen issues.
 
-CREATE OR REPLACE FUNCTION public.request_account_deletion(reason text)
+CREATE OR REPLACE FUNCTION public.request_account_deletion(reason text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
