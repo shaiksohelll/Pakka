@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -109,9 +109,9 @@ async function fetchMilestonesData(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-          available_balance: Number(walletRes.data.available_balance),
-          locked_balance: Number(walletRes.data.locked_balance),
-        }
+        available_balance: Number(walletRes.data.available_balance),
+        locked_balance: Number(walletRes.data.locked_balance),
+      }
       : { available_balance: 0, locked_balance: 0 },
     workerName,
   };
@@ -122,6 +122,13 @@ export function ClientMilestones() {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const { user } = useUser();
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "fund" | "approve" | "dispute";
@@ -179,40 +186,53 @@ export function ClientMilestones() {
 
   // ── Action handlers ─────────────────────────────────────────────────────
   function handleFund(milestoneId: string) {
+    if (inFlightRef.current.has(milestoneId)) return;
+    inFlightRef.current.add(milestoneId);
     startTransition(async () => {
-      const result = await fundMilestoneAction({
-        milestone_id: milestoneId,
-        idempotency_key: crypto.randomUUID(),
-      });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await fundMilestoneAction({
+          milestone_id: milestoneId,
+          idempotency_key: crypto.randomUUID(),
+        });
+        if (!mountedRef.current) return;
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Milestone funded! Funds locked in escrow.");
+        setConfirmDialog(null);
+        queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+      } finally {
+        inFlightRef.current.delete(milestoneId);
       }
-      toast.success("Milestone funded! Funds locked in escrow.");
-      setConfirmDialog(null);
-      queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-      queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
     });
   }
 
   function handleApprove(milestoneId: string) {
+    if (inFlightRef.current.has(milestoneId)) return;
+    inFlightRef.current.add(milestoneId);
     startTransition(async () => {
       // Optimistic: close dialog immediately
       setConfirmDialog(null);
-
-      const result = await approveMilestoneAction({
-        milestone_id: milestoneId,
-        idempotency_key: crypto.randomUUID(),
-      });
-      if (!result.success) {
-        toast.error(result.error);
-        // Rollback by refetching
+      try {
+        const result = await approveMilestoneAction({
+          milestone_id: milestoneId,
+          idempotency_key: crypto.randomUUID(),
+        });
+        if (!mountedRef.current) return;
+        if (!result.success) {
+          toast.error(result.error);
+          // Rollback by refetching
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+          return;
+        }
+        toast.success("Milestone approved! Funds released to worker.");
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-        return;
+        queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+      } finally {
+        inFlightRef.current.delete(milestoneId);
       }
-      toast.success("Milestone approved! Funds released to worker.");
-      queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-      queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
     });
   }
 
@@ -221,22 +241,28 @@ export function ClientMilestones() {
       toast.error("Please provide a reason (at least 10 characters).");
       return;
     }
+    if (inFlightRef.current.has(milestoneId)) return;
+    inFlightRef.current.add(milestoneId);
     startTransition(async () => {
       setConfirmDialog(null);
-
-      const result = await disputeMilestoneAction({
-        milestone_id: milestoneId,
-        reason: disputeReason,
-        idempotency_key: crypto.randomUUID(),
-      });
-      if (!result.success) {
-        toast.error(result.error);
+      try {
+        const result = await disputeMilestoneAction({
+          milestone_id: milestoneId,
+          reason: disputeReason,
+          idempotency_key: crypto.randomUUID(),
+        });
+        if (!mountedRef.current) return;
+        if (!result.success) {
+          toast.error(result.error);
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+          return;
+        }
+        toast.success("Dispute raised. Our team will review this.");
+        setDisputeReason("");
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
-        return;
+      } finally {
+        inFlightRef.current.delete(milestoneId);
       }
-      toast.success("Dispute raised. Our team will review this.");
-      setDisputeReason("");
-      queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
     });
   }
 
@@ -534,7 +560,7 @@ function MilestoneCard({
         "rounded-xl border bg-card p-4 space-y-3 transition-all",
         m.status === "disputed" && "border-red-200 bg-red-50/30",
         (m.status === "approved" || m.status === "released") &&
-          "border-emerald-200 bg-emerald-50/30",
+        "border-emerald-200 bg-emerald-50/30",
       )}
     >
       {/* Header row */}
