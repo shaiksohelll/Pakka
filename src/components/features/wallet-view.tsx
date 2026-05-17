@@ -7,6 +7,7 @@ import { useUser } from "@/hooks/use-user";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { TopUpDialog } from "@/components/features/topup-dialog";
 import { formatInr, relativeTime } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,11 +46,13 @@ async function fetchWalletData(role: "client" | "worker", userId: string) {
       .single(),
     supabase
       .from("escrow_ledger")
-      .select(`
+      .select(
+        `
         id,amount,type,created_at,from_wallet,to_wallet,
         jobs!escrow_ledger_job_id_fkey(title),
         milestones!escrow_ledger_milestone_id_fkey(title)
-      `)
+      `,
+      )
       .or(`from_wallet.eq.${userId},to_wallet.eq.${userId}`)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -155,21 +158,21 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
               Locked
             </p>
           </div>
-          <p className="text-2xl font-bold text-blue-700">
-            {formatInr(wallet.locked_balance)}
-          </p>
+          <p className="text-2xl font-bold text-blue-700">{formatInr(wallet.locked_balance)}</p>
           <p className="text-xs text-muted-foreground">In active escrows</p>
         </div>
       </section>
+
+      <div className="flex justify-end">
+        <TopUpDialog />
+      </div>
 
       {/* ── Locked breakdown (client only) ── */}
       {role === "client" && lockedByJob.length > 0 && (
         <>
           <Separator />
           <section>
-            <h2 className="mb-3 text-base font-semibold text-foreground">
-              Locked Breakdown
-            </h2>
+            <h2 className="mb-3 text-base font-semibold text-foreground">Locked Breakdown</h2>
             <ul className="space-y-2">
               {lockedByJob.map((job) => (
                 <li
@@ -196,9 +199,7 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
 
       {/* ── Transaction history ── */}
       <section>
-        <h2 className="mb-3 text-base font-semibold text-foreground">
-          Recent Transactions
-        </h2>
+        <h2 className="mb-3 text-base font-semibold text-foreground">Recent Transactions</h2>
         {ledger.length === 0 ? (
           <div className="rounded-xl border bg-muted/40 py-10 text-center text-sm text-muted-foreground">
             No transactions yet.
@@ -232,7 +233,11 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
                     </div>
                     <div>
                       <p className="text-sm font-medium">
-                        {entry.milestone_title ?? entry.job_title}
+                        {entry.type === "topup"
+                          ? "Wallet top-up"
+                          : entry.type === "withdraw"
+                            ? "Wallet withdrawal"
+                            : (entry.milestone_title ?? entry.job_title)}
                       </p>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <StatusBadge
@@ -243,7 +248,11 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
                                 ? "released"
                                 : entry.type === "refund"
                                   ? "refunded"
-                                  : "pending"
+                                  : entry.type === "topup"
+                                    ? "funded"
+                                    : entry.type === "withdraw"
+                                      ? "refunded"
+                                      : "pending"
                           }
                         />
                         <span>{relativeTime(entry.created_at)}</span>
