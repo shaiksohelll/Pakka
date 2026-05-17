@@ -1,11 +1,10 @@
 "use client";
 
-import { formatInr } from "@/lib/format";
-import { useRef, useState, useTransition, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-
+import { toast } from "sonner";
+import { topupWalletAction } from "@/app/_actions/wallet";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,17 +15,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import { topupWalletAction } from "@/app/_actions/wallet";
+import { formatInr } from "@/lib/format";
 
 const QUICK_AMOUNTS = [1000, 5000, 10000, 25000];
+
+const blurOnWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+  (e.target as HTMLInputElement).blur();
+};
 
 export function TopUpDialog() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amountStr, setAmountStr] = useState("");
-  const [isPending, startTransition] = useTransition();
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -37,46 +37,48 @@ export function TopUpDialog() {
     };
   }, []);
 
-  function handleTopUp() {
-    const amount = Number(amountStr);
-    if (!Number.isFinite(amount) || amount < 100) {
-      toast.error("Enter at least ₹100.");
-      return;
-    }
-    if (amount > 100000) {
-      toast.error("Maximum top-up is ₹1,00,000.");
-      return;
-    }
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-
-    startTransition(async () => {
-      try {
-        const result = await topupWalletAction({
-          amount,
-          idempotency_key: crypto.randomUUID(),
-        });
-
-        if (!result.success) {
-          if (mountedRef.current) toast.error(result.error);
-          return;
-        }
-
-        // Cache invalidation — safe to run regardless of mount state.
-        // Adjust query keys below if yours differ.
-        queryClient.invalidateQueries({ queryKey: ["wallet"] });
-
-        if (mountedRef.current) {
-          const newBalance = result.data?.availableBalance ?? 0;
-          toast.success(`Added ${formatInr(amount)}. New balance: ${formatInr(newBalance)}`);
-          setAmountStr("");
-          setOpen(false);
-        }
-      } finally {
-        inFlightRef.current = false;
+  const mutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const result = await topupWalletAction({
+        amount,
+        idempotency_key: crypto.randomUUID(),
+      });
+      if (!result.success) {
+        throw new Error(result.error);
       }
-    });
-  }
+      return { amount, newBalance: result.data?.availableBalance ?? 0 };
+    },
+    onSuccess: ({ amount, newBalance }) => {
+      // Always invalidate so the wallet view re-fetches even if we unmounted.
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      if (!mountedRef.current) return;
+      toast.success(`Added ${formatInr(amount)}. New balance: ${formatInr(newBalance)}`);
+      setAmountStr("");
+      setOpen(false);
+    },
+    onError: (err: Error) => {
+      if (!mountedRef.current) return;
+      toast.error(err.message || "Could not top up wallet. Please try again.");
+    },
+    onSettled: () => {
+      inFlightRef.current = false;
+    },
+  });
+
+  const isPending = mutation.isPending;
+
+  const handleSubmit = () => {
+    if (inFlightRef.current || isPending) return;
+
+    const amount = Number(amountStr);
+    if (!Number.isFinite(amount) || amount < 100 || amount > 100000) {
+      toast.error("Amount must be between ₹100 and ₹1,00,000.");
+      return;
+    }
+
+    inFlightRef.current = true;
+    mutation.mutate(amount);
+  };
 
   return (
     <>
@@ -88,23 +90,24 @@ export function TopUpDialog() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add money to wallet</DialogTitle>
-            <DialogDescription>Test-mode top-up. ₹100 – ₹1,00,000.</DialogDescription>
+            <DialogDescription>
+              Test-mode top-up. {formatInr(100)} – {formatInr(100000)}.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="topup-amount">Amount (₹)</Label>
+              <span className="text-sm font-medium">Amount</span>
               <Input
-                id="topup-amount"
                 type="number"
-                inputMode="numeric"
+                inputMode="decimal"
+                placeholder="0"
                 min={100}
                 max={100000}
                 step={100}
-                placeholder="1000"
                 value={amountStr}
                 onChange={(e) => setAmountStr(e.target.value)}
-                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                onWheel={blurOnWheel}
                 disabled={isPending}
               />
             </div>
@@ -126,16 +129,11 @@ export function TopUpDialog() {
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => setOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
               Cancel
             </Button>
-            <Button type="button" disabled={isPending} onClick={handleTopUp}>
-              {isPending ? "Adding..." : "Add Money"}
+            <Button onClick={handleSubmit} disabled={isPending}>
+              {isPending ? "Processing…" : "Add money"}
             </Button>
           </DialogFooter>
         </DialogContent>
