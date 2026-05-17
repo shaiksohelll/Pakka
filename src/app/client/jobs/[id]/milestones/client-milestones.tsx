@@ -125,6 +125,7 @@ export function ClientMilestones() {
   const inFlightRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
@@ -194,15 +195,16 @@ export function ClientMilestones() {
           milestone_id: milestoneId,
           idempotency_key: crypto.randomUUID(),
         });
-        if (!mountedRef.current) return;
         if (!result.success) {
-          toast.error(result.error);
+          if (mountedRef.current) toast.error(result.error);
           return;
         }
-        toast.success("Milestone funded! Funds locked in escrow.");
-        setConfirmDialog(null);
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        if (mountedRef.current) {
+          toast.success("Milestone funded! Funds locked in escrow.");
+          setConfirmDialog(null);
+        }
       } finally {
         inFlightRef.current.delete(milestoneId);
       }
@@ -220,16 +222,17 @@ export function ClientMilestones() {
           milestone_id: milestoneId,
           idempotency_key: crypto.randomUUID(),
         });
-        if (!mountedRef.current) return;
         if (!result.success) {
-          toast.error(result.error);
           // Rollback by refetching
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+          if (mountedRef.current) toast.error(result.error);
           return;
         }
-        toast.success("Milestone approved! Funds released to worker.");
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        if (mountedRef.current) {
+          toast.success("Milestone approved! Funds released to worker.");
+        }
       } finally {
         inFlightRef.current.delete(milestoneId);
       }
@@ -251,15 +254,16 @@ export function ClientMilestones() {
           reason: disputeReason,
           idempotency_key: crypto.randomUUID(),
         });
-        if (!mountedRef.current) return;
         if (!result.success) {
-          toast.error(result.error);
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+          if (mountedRef.current) toast.error(result.error);
           return;
         }
-        toast.success("Dispute raised. Our team will review this.");
-        setDisputeReason("");
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        if (mountedRef.current) {
+          toast.success("Dispute raised. Our team will review this.");
+          setDisputeReason("");
+        }
       } finally {
         inFlightRef.current.delete(milestoneId);
       }
