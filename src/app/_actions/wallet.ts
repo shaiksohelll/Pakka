@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { topupWalletSchema, type TopupWalletInput } from "@/lib/schemas/wallet";
+import {
+  topupWalletSchema,
+  type TopupWalletInput,
+  withdrawWalletSchema,
+  type WithdrawWalletInput,
+} from "@/lib/schemas/wallet";
 import type { ActionResult } from "./escrow";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -49,6 +54,64 @@ export async function topupWalletAction(
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) {
       return { success: false, error: "Could not top up wallet. Please try again." };
+    }
+
+    revalidatePath("/client/wallet", "layout");
+    revalidatePath("/worker/wallet", "layout");
+
+    return {
+      success: true,
+      data: {
+        availableBalance: Number(row.available_balance),
+        ledgerId: row.ledger_id as string,
+      },
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    // TODO: Sentry.captureException(err);
+    return { success: false, error: msg };
+  }
+}
+
+// ── Withdraw Wallet ───────────────────────────────────────────────────────────
+// wallet → external: calls withdraw_wallet() SECURITY DEFINER function (test mode)
+export async function withdrawWalletAction(
+  raw: WithdrawWalletInput,
+): Promise<ActionResult<{ availableBalance: number; ledgerId: string }>> {
+  try {
+    const parsed = withdrawWalletSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    }
+
+    const { supabase } = await getAuthUserId();
+    const { amount, idempotency_key } = parsed.data;
+
+    const { data, error } = await supabase.rpc("withdraw_wallet", {
+      p_amount: amount,
+      p_idempotency_key: idempotency_key,
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("invalid_amount")) {
+        return { success: false, error: "Amount must be at least ₹100." };
+      }
+      if (msg.includes("insufficient_balance")) {
+        return { success: false, error: "Not enough balance in your wallet." };
+      }
+      if (msg.includes("not_authenticated")) {
+        return { success: false, error: "You need to be signed in." };
+      }
+      if (msg.includes("wallet_not_found")) {
+        return { success: false, error: "Wallet not found. Please contact support." };
+      }
+      return { success: false, error: "Could not withdraw from wallet. Please try again." };
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      return { success: false, error: "Could not withdraw from wallet. Please try again." };
     }
 
     revalidatePath("/client/wallet", "layout");

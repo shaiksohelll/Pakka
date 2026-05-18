@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { TopUpDialog } from "@/components/features/topup-dialog";
+import { WithdrawDialog } from "@/components/features/withdraw-dialog";
 import { formatInr, relativeTime } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -163,8 +164,11 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <TopUpDialog />
+      <div className="flex justify-end gap-2">
+        {role === "client" && <TopUpDialog />}
+        {role === "worker" && (
+          <WithdrawDialog availableBalance={wallet.available_balance} />
+        )}
       </div>
 
       {/* ── Locked breakdown (client only) ── */}
@@ -217,13 +221,12 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        isIncoming
-                          ? "bg-emerald-100 text-emerald-700"
-                          : isOutgoing
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-700"
-                      }`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${isIncoming
+                        ? "bg-emerald-100 text-emerald-700"
+                        : isOutgoing
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
+                        }`}
                     >
                       {isIncoming ? (
                         <ArrowDownLeft className="h-4 w-4" />
@@ -260,9 +263,8 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
                     </div>
                   </div>
                   <span
-                    className={`text-sm font-bold ${
-                      isIncoming ? "text-emerald-700" : "text-foreground"
-                    }`}
+                    className={`text-sm font-bold ${isIncoming ? "text-emerald-700" : "text-foreground"
+                      }`}
                   >
                     {isIncoming ? "+" : "-"}
                     {formatInr(entry.amount)}

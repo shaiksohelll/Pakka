@@ -1,5 +1,6 @@
 "use client";
 
+import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -41,7 +42,7 @@ export function TopUpDialog() {
     mutationFn: async (amount: number) => {
       const result = await topupWalletAction({
         amount,
-        idempotency_key: crypto.randomUUID(),
+        idempotency_key: generateUuid(),
       });
       if (!result.success) {
         throw new Error(result.error);

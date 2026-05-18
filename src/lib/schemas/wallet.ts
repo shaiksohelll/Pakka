@@ -9,3 +9,11 @@ export const topupWalletSchema = z.object({
 });
 
 export type TopupWalletInput = z.infer<typeof topupWalletSchema>;
+export const withdrawWalletSchema = z.object({
+  amount: z
+    .number({ invalid_type_error: "Amount must be a number." })
+    .min(100, "Minimum withdrawal is ₹100."),
+  idempotency_key: z.string().uuid(),
+});
+
+export type WithdrawWalletInput = z.infer<typeof withdrawWalletSchema>;
