@@ -32,7 +32,7 @@ These SECURITY DEFINER functions are the financial state machine. Smoke-tested a
 - admin_refund
 - auto_release_milestones
 - topup_wallet
-- withdraw_wallet (once PR #18 lands)
+- withdraw_wallet (once the worker withdrawal milestone lands)
 
 If a feature needs new financial logic, add a new RPC. Do not edit existing ones.
 
@@ -59,7 +59,7 @@ useTransition's isPending only stays true through the synchronous prefix. It rel
 
 ## Dialog component pattern
 
-Canonical reference: src/components/wallet/topup-dialog.tsx (post-PR-#17). Every async dialog follows:
+Canonical reference: src/components/features/topup-dialog.tsx. Every async dialog follows:
 
 - useMutation bound to the full async lifecycle (above)
 - inFlightRef = useRef(false) — synchronous guard for the double-click window before mutation.isPending flips true
@@ -92,14 +92,14 @@ Every state-changing RPC follows this template:
 
 - security definer + set search_path = public always together
 - grant execute … to authenticated — never anon, never public
-- Postgres errcodes (42501, 22023) — client maps codes to user-facing messages, never raw error text
-- Idempotency: every state-changing RPC takes p_idempotency_key uuid. The UNIQUE constraint scope and the function's lookup predicate must include the same owner column (per-user, not global). See topup_wallet migration 20260518002100.
+- Postgres errcodes (42501, 22023) are the contract for new RPC wrappers: callers map codes to user-facing messages instead of exposing raw error text. Existing escrow server action wrappers (fund_escrow, submit_milestone, approve_milestone, dispute_milestone) still return error.message directly until they are updated under an ADR
+- Idempotency: every NEW state-changing RPC must take p_idempotency_key uuid. The protected financial state-machine RPCs listed in "Don't touch" are legacy exceptions; they may only gain idempotency under an approved ADR. The UNIQUE constraint scope and the function's lookup predicate must include the same owner column (per-user, not global). See topup_wallet migration 20260518002100.
 
 ## RLS + cross-user reads
 
 profiles RLS allows self-read only. Client sessions cannot .from('profiles').in('id', otherUserIds) and get rows back — query silently returns []. For any cross-user enrichment (e.g. showing worker names on a client's application list), use a SECURITY DEFINER RPC with an explicit EXISTS clause proving the caller is authorized to see those IDs. See get_application_worker_summary.
 
-Per ADR-0032: never silently default to [] on .error. Always throw.
+Never silently default to [] on .error. Always throw.
 
 ## Realtime subscription contract
 
@@ -115,14 +115,21 @@ Tables needing REPLICA IDENTITY FULL + supabase_realtime publication: milestones
 
 ## Error handling + Sentry
 
-Every server action / RPC wrapper catch block includes:
+The `// TODO: Sentry.captureException(err)` marker is a grep target. When the Sentry SDK is wired into the codebase, a single sed pass replaces markers with real calls. Don't remove markers, don't change wording. The exact catch-block shape depends on whether the function is a server action or an internal helper.
+
+For server actions matching the existing wallet.ts / escrow.ts pattern (returns a result, does not throw):
+
+    } catch (err) {
+      // TODO: Sentry.captureException(err)
+      return { ok: false, error: err instanceof Error ? err.message : 'unknown_error' }
+    }
+
+For internal helpers or library code that legitimately re-throws:
 
     } catch (err) {
       // TODO: Sentry.captureException(err)
       throw err
     }
-
-The // TODO: Sentry.captureException(err) marker is a grep target. When Sentry SDK lands (PR #18), a single sed pass replaces markers with real calls. Don't remove markers, don't change wording.
 
 ## Conventional commits
 
