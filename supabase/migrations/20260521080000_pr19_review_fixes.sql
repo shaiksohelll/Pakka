@@ -149,6 +149,7 @@ end;
 $$;
 
 -- 4. auto_release_milestones — remove GUC setter, add NOTICE on skip
+-- See docs/adr/0005-auto-release-milestones-modification.md for the ADR approving this in-place modification.
 create or replace function public.auto_release_milestones()
 returns integer
 language plpgsql
