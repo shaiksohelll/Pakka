@@ -108,12 +108,6 @@ export async function completeWorkerOnboardingAction(
 
   const selfie = formData.get("selfie");
 
-  console.log("kyc-action invoked", {
-    name: payload.fullName,
-    hasSelfie: !!selfie,
-    categories: payload.categories,
-    skillTags: payload.skillTags,
-  });
 
   const parsed = workerOnboardingSchema.safeParse(payload);
   if (!parsed.success) {
@@ -152,6 +146,8 @@ export async function completeWorkerOnboardingAction(
   );
 
   if (profileError) {
+    // Clean up orphaned selfie if downstream DB write failed.
+    await supabase.storage.from("kyc").remove([selfiePath]);
     return { success: false, error: profileError.message };
   }
 
@@ -169,6 +165,8 @@ export async function completeWorkerOnboardingAction(
   );
 
   if (workerError) {
+    // Clean up orphaned selfie if downstream DB write failed.
+    await supabase.storage.from("kyc").remove([selfiePath]);
     return { success: false, error: workerError.message };
   }
 

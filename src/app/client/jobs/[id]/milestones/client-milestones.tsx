@@ -61,6 +61,10 @@ type JobInfo = {
 // ── Fetcher ───────────────────────────────────────────────────────────────────
 async function fetchMilestonesData(jobId: string) {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
 
   const [jobRes, msRes, walletRes, workerRes] = await Promise.all([
     supabase.from("jobs").select("id,title,total_budget,status,worker_id").eq("id", jobId).single(),
@@ -71,7 +75,11 @@ async function fetchMilestonesData(jobId: string) {
       )
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase.from("wallets").select("available_balance,locked_balance").limit(1).single(),
+    supabase
+      .from("wallets")
+      .select("available_balance,locked_balance")
+      .eq("profile_id", user.id)
+      .single(),
     // Get the worker name if assigned
     supabase
       .from("jobs")
@@ -96,9 +104,9 @@ async function fetchMilestonesData(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-          available_balance: Number(walletRes.data.available_balance),
-          locked_balance: Number(walletRes.data.locked_balance),
-        }
+        available_balance: Number(walletRes.data.available_balance),
+        locked_balance: Number(walletRes.data.locked_balance),
+      }
       : { available_balance: 0, locked_balance: 0 },
     workerName,
   };
@@ -545,7 +553,7 @@ function MilestoneCard({
         "rounded-xl border bg-card p-4 space-y-3 transition-all",
         m.status === "disputed" && "border-red-200 bg-red-50/30",
         (m.status === "approved" || m.status === "released") &&
-          "border-emerald-200 bg-emerald-50/30",
+        "border-emerald-200 bg-emerald-50/30",
       )}
     >
       {/* Header row */}

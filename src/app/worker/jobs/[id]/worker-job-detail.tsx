@@ -72,6 +72,9 @@ async function fetchWorkerJobData(
   ]);
 
   if (jobRes.error) throw jobRes.error;
+  if (msRes.error) throw msRes.error;
+  if (matRes.error) throw matRes.error;
+  if (appRes.error) throw appRes.error;
 
   return {
     id: jobRes.data!.id,

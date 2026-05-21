@@ -132,8 +132,9 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     error,
     status: queryStatus,
   } = useInfiniteQuery({
-    queryKey: ["worker-feed", selectedCategories, sort],
+    queryKey: ["worker-feed", user?.id, selectedCategories, sort],
     staleTime: 30_000,
+    enabled: !!user?.id,
     refetchOnWindowFocus: true,
     refetchInterval: 60_000, // RLS-aware backstop: realtime UPDATE doesn't fire
     // when a job moves off 'open' (worker loses SELECT
