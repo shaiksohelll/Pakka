@@ -1,6 +1,7 @@
 Data Model — Pakka Escrow Marketplace
 
 Overview
+
 - Pakka is a two-sided marketplace for local trades where clients post jobs and fund milestones. Escrow funds move only via SECURITY DEFINER functions and every mutation is audited through RLS-protected rows with server-side authorization.
 - The data model emphasizes a strong separation of concerns: profiles define users, wallets track balances, jobs describe work, milestones drive funding, and the ledger records all money movements in an append-only fashion.
 
@@ -19,6 +20,7 @@ Tables
 - notifications (id uuid PK, recipient_id uuid REFERENCES profiles(id), type text, title text, body text, data jsonb, read_at timestamptz, created_at timestamptz DEFAULT now())
 
 Indexes (suggested)
+
 - CREATE INDEX ON wallets(profile_id);
 - CREATE INDEX ON jobs(client_id);
 - CREATE INDEX ON jobs(worker_id);
@@ -31,6 +33,7 @@ Indexes (suggested)
 - CREATE INDEX ON notifications(recipient_id);
 
 RLS and Security Intent
+
 - profiles: user reads own row only; cross-user reads go through SECURITY DEFINER RPCs.
 - wallets: read protected; writes only via SECURITY DEFINER functions; client cannot mutate directly.
 - escrow_ledger: read-only for participants of the associated job via RPCs; insertions occur via Edge Functions (SECURITY DEFINER).
@@ -39,6 +42,7 @@ RLS and Security Intent
 - All money-related fields and balances computed via server-side RPCs; no client-side balance math.
 
 Security Definer Helpers (high level)
+
 - is_admin() returns boolean
 - fund_escrow(milestone_id)
 - submit_milestone(milestone_id)
@@ -49,6 +53,7 @@ Security Definer Helpers (high level)
 - auto_release_milestones()
 
 Notes
+
 - All money movement must be atomic and audited via escrow_ledger with zero-sum invariants.
 - Use SELECT FOR UPDATE when mutating wallets in SECURITY DEFINER calls to avoid race conditions.
 - RLS policies should be as restrictive as possible with admin bypass only where required.

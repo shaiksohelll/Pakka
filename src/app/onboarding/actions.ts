@@ -107,12 +107,12 @@ export async function completeWorkerOnboardingAction(
   };
 
   const selfie = formData.get("selfie");
-  
-  console.log("kyc-action invoked", { 
-    name: payload.fullName, 
-    hasSelfie: !!selfie, 
-    categories: payload.categories, 
-    skillTags: payload.skillTags 
+
+  console.log("kyc-action invoked", {
+    name: payload.fullName,
+    hasSelfie: !!selfie,
+    categories: payload.categories,
+    skillTags: payload.skillTags,
   });
 
   const parsed = workerOnboardingSchema.safeParse(payload);
@@ -131,10 +131,12 @@ export async function completeWorkerOnboardingAction(
 
   const selfiePath = `${userId}/selfie-${Date.now()}.jpg`;
   const selfieBuffer = await selfie.arrayBuffer();
-  const { error: uploadError } = await supabase.storage.from("kyc").upload(selfiePath, selfieBuffer, {
-    contentType: selfie.type || "image/jpeg",
-    upsert: false,
-  });
+  const { error: uploadError } = await supabase.storage
+    .from("kyc")
+    .upload(selfiePath, selfieBuffer, {
+      contentType: selfie.type || "image/jpeg",
+      upsert: false,
+    });
 
   if (uploadError) {
     return { success: false, error: uploadError.message };

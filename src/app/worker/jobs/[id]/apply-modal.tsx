@@ -28,13 +28,7 @@ type ApplyModalProps = {
   onSuccess: () => void;
 };
 
-export function ApplyModal({
-  open,
-  onOpenChange,
-  jobId,
-  totalBudget,
-  onSuccess,
-}: ApplyModalProps) {
+export function ApplyModal({ open, onOpenChange, jobId, totalBudget, onSuccess }: ApplyModalProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<ApplyJobFormInput>({
@@ -88,7 +82,11 @@ export function ApplyModal({
         <form onSubmit={onSubmit} className="space-y-4">
           {/* Hidden fields */}
           <input type="hidden" {...register("job_id")} value={jobId} />
-          <input type="hidden" {...register("total_budget", { valueAsNumber: true })} value={totalBudget} />
+          <input
+            type="hidden"
+            {...register("total_budget", { valueAsNumber: true })}
+            value={totalBudget}
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="bid_amount">Your Bid (₹)</Label>
@@ -149,9 +147,7 @@ export function ApplyModal({
             <p className="text-right text-[10px] text-muted-foreground">
               {watch("message")?.length ?? 0} / 500
             </p>
-            {errors.message && (
-              <p className="text-xs text-destructive">{errors.message.message}</p>
-            )}
+            {errors.message && <p className="text-xs text-destructive">{errors.message.message}</p>}
           </div>
 
           <Button

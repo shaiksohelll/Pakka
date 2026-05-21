@@ -37,4 +37,3 @@ export const CATEGORY_LABELS: Record<string, string> = {
   "appliance-repair": "Appliance Repair",
   cleaning: "Cleaning",
 };
-

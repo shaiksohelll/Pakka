@@ -62,10 +62,7 @@ async function fetchWorkerJobData(
       .select("id,sequence,title,description,amount,status")
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase
-      .from("materials")
-      .select("id,vendor_name,item_name,qty,amount")
-      .eq("job_id", jobId),
+    supabase.from("materials").select("id,vendor_name,item_name,qty,amount").eq("job_id", jobId),
     supabase
       .from("job_applications")
       .select("id")
@@ -120,26 +117,38 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
     const supabase = createClient();
     const channel = supabase
       .channel(`worker-job-detail-${jobId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'jobs',
-        filter: `id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-job-detail-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
-      })
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'milestones',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-job-detail-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['worker-job', jobId] });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-job-detail-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "milestones",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-job-detail-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["worker-job", jobId] });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[worker-job-detail-realtime]', status, err ?? '');
+        console.log("[worker-job-detail-realtime]", status, err ?? "");
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [jobId, user?.id, queryClient]);
 
   function handleApplySuccess() {
@@ -166,9 +175,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
         {/* Header */}
         <section className="space-y-2">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-xl font-bold text-primary flex-1 leading-snug">
-              {data.title}
-            </h1>
+            <h1 className="text-xl font-bold text-primary flex-1 leading-snug">{data.title}</h1>
             <StatusBadge variant={data.status} />
           </div>
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
@@ -194,9 +201,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
 
         {/* Milestones */}
         <section>
-          <h2 className="mb-3 text-base font-semibold">
-            Milestones ({data.milestones.length})
-          </h2>
+          <h2 className="mb-3 text-base font-semibold">Milestones ({data.milestones.length})</h2>
           <ol className="space-y-2">
             {data.milestones.map((m) => (
               <li
@@ -204,7 +209,9 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
                 className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
               >
                 <div>
-                  <p className="text-sm font-medium">{m.sequence}. {m.title}</p>
+                  <p className="text-sm font-medium">
+                    {m.sequence}. {m.title}
+                  </p>
                   {m.description && (
                     <p className="text-xs text-muted-foreground">{m.description}</p>
                   )}
@@ -234,9 +241,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
           <>
             <Separator />
             <section>
-              <h2 className="mb-3 text-base font-semibold">
-                Materials ({data.materials.length})
-              </h2>
+              <h2 className="mb-3 text-base font-semibold">Materials ({data.materials.length})</h2>
               <ul className="space-y-2">
                 {data.materials.map((mat) => (
                   <li

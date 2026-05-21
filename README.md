@@ -68,15 +68,15 @@ See [`docs/adr/0001-escrow-state-machine-in-postgres.md`](docs/adr/0001-escrow-s
 
 > The live demo runs in Demo Mode. Log in at `/login` with any phone below. OTP is always **123456** — no SMS is sent.
 
-| Role | Phone | Notes |
-| --- | --- | --- |
-| Client | `+91 98765 00001` | Priya — active jobs, escrow funded |
-| Client | `+91 98765 00002` | Rohit — milestone awaiting review |
-| Client | `+91 98765 00003` | Anjali — has an open dispute |
+| Role   | Phone             | Notes                                     |
+| ------ | ----------------- | ----------------------------------------- |
+| Client | `+91 98765 00001` | Priya — active jobs, escrow funded        |
+| Client | `+91 98765 00002` | Rohit — milestone awaiting review         |
+| Client | `+91 98765 00003` | Anjali — has an open dispute              |
 | Worker | `+91 98765 00011` | Ravi — gold tier, verified, job completed |
-| Worker | `+91 98765 00012` | Suresh — submitted milestone |
-| Worker | `+91 98765 00014` | Deepak — KYC pending (browse-only) |
-| Admin  | `+91 98765 00099` | Demo admin — use `/admin` route |
+| Worker | `+91 98765 00012` | Suresh — submitted milestone              |
+| Worker | `+91 98765 00014` | Deepak — KYC pending (browse-only)        |
+| Admin  | `+91 98765 00099` | Demo admin — use `/admin` route           |
 
 ## Local development
 

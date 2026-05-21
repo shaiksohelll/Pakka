@@ -54,7 +54,6 @@ Two designs were considered:
 - `accept_application(...)`
 - `cancel_job(...)`
 
-
 ## Consequences
 
 ### Positive

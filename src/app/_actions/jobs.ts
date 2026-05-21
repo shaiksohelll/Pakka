@@ -27,9 +27,7 @@ async function getAuthUserId() {
 }
 
 // ── Post a job ────────────────────────────────────────────────────────────────
-export async function postJobAction(
-  raw: PostJobInput,
-): Promise<ActionResult<{ jobId: string }>> {
+export async function postJobAction(raw: PostJobInput): Promise<ActionResult<{ jobId: string }>> {
   try {
     const parsed = postJobSchema.safeParse(raw);
     if (!parsed.success) {
@@ -40,8 +38,17 @@ export async function postJobAction(
     }
 
     const { supabase, userId } = await getAuthUserId();
-    const { title, category, description, location_text, lat, lng, total_budget, milestones, materials } =
-      parsed.data;
+    const {
+      title,
+      category,
+      description,
+      location_text,
+      lat,
+      lng,
+      total_budget,
+      milestones,
+      materials,
+    } = parsed.data;
 
     // Insert job
     const { data: job, error: jobError } = await supabase
@@ -107,9 +114,7 @@ export async function postJobAction(
 }
 
 // ── Apply to job ──────────────────────────────────────────────────────────────
-export async function applyToJobAction(
-  raw: ApplyJobInput,
-): Promise<ActionResult> {
+export async function applyToJobAction(raw: ApplyJobInput): Promise<ActionResult> {
   try {
     const parsed = applyJobSchema.safeParse(raw);
     if (!parsed.success) {
@@ -163,9 +168,7 @@ export async function applyToJobAction(
 }
 
 // ── Accept worker ─────────────────────────────────────────────────────────────
-export async function acceptWorkerAction(
-  raw: AcceptWorkerInput,
-): Promise<ActionResult> {
+export async function acceptWorkerAction(raw: AcceptWorkerInput): Promise<ActionResult> {
   try {
     const parsed = acceptWorkerSchema.safeParse(raw);
     if (!parsed.success) {
@@ -216,10 +219,7 @@ export async function acceptWorkerAction(
         .eq("id", job_id)
         .eq("client_id", userId),
 
-      supabase
-        .from("job_applications")
-        .update({ status: "accepted" })
-        .eq("id", application_id),
+      supabase.from("job_applications").update({ status: "accepted" }).eq("id", application_id),
 
       supabase
         .from("job_applications")

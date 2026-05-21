@@ -6,10 +6,10 @@ import { Briefcase, Plus, Wallet, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { label: "My Jobs", href: "/client/jobs",     Icon: Briefcase },
-  { label: "Post",    href: "/client/jobs/new", Icon: Plus      },
-  { label: "Wallet",  href: "/client/wallet",   Icon: Wallet    },
-  { label: "Account", href: "/client/account",  Icon: User      },
+  { label: "My Jobs", href: "/client/jobs", Icon: Briefcase },
+  { label: "Post", href: "/client/jobs/new", Icon: Plus },
+  { label: "Wallet", href: "/client/wallet", Icon: Wallet },
+  { label: "Account", href: "/client/account", Icon: User },
 ] as const;
 
 export function ClientNavShell({ children }: { children: React.ReactNode }) {
@@ -54,9 +54,7 @@ export function ClientNavShell({ children }: { children: React.ReactNode }) {
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                     "hover:opacity-80",
                     "motion-reduce:transition-none",
-                    active
-                      ? "text-emerald-500"
-                      : "text-neutral-500",
+                    active ? "text-emerald-500" : "text-neutral-500",
                   )}
                   aria-current={active ? "page" : undefined}
                 >

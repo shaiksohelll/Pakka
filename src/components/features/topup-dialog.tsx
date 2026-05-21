@@ -28,6 +28,9 @@ export function TopUpDialog() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amountStr, setAmountStr] = useState("");
+  // Stable idempotency key for the lifetime of an open dialog. Resets each
+  // time the dialog closes so the next open starts a fresh logical request.
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateUuid());
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -38,11 +41,15 @@ export function TopUpDialog() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) setIdempotencyKey(generateUuid());
+  }, [open]);
+
   const mutation = useMutation({
     mutationFn: async (amount: number) => {
       const result = await topupWalletAction({
         amount,
-        idempotency_key: generateUuid(),
+        idempotency_key: idempotencyKey,
       });
       if (!result.success) {
         throw new Error(result.error);
@@ -50,7 +57,6 @@ export function TopUpDialog() {
       return { amount, newBalance: result.data?.availableBalance ?? 0 };
     },
     onSuccess: ({ amount, newBalance }) => {
-      // Always invalidate so the wallet view re-fetches even if we unmounted.
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       if (!mountedRef.current) return;
       toast.success(`Added ${formatInr(amount)}. New balance: ${formatInr(newBalance)}`);
@@ -70,13 +76,11 @@ export function TopUpDialog() {
 
   const handleSubmit = () => {
     if (inFlightRef.current || isPending) return;
-
     const amount = Number(amountStr);
     if (!Number.isFinite(amount) || amount < 100 || amount > 100000) {
       toast.error("Amount must be between ₹100 and ₹1,00,000.");
       return;
     }
-
     inFlightRef.current = true;
     mutation.mutate(amount);
   };
@@ -95,7 +99,6 @@ export function TopUpDialog() {
               Test-mode top-up. {formatInr(100)} – {formatInr(100000)}.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <span className="text-sm font-medium">Amount</span>
@@ -112,7 +115,6 @@ export function TopUpDialog() {
                 disabled={isPending}
               />
             </div>
-
             <div className="flex flex-wrap gap-2">
               {QUICK_AMOUNTS.map((amt) => (
                 <Button
@@ -128,7 +130,6 @@ export function TopUpDialog() {
               ))}
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
               Cancel

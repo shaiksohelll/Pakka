@@ -32,9 +32,7 @@ export const CATEGORY_LABELS: Record<JobCategory, string> = {
 export const milestoneSchema = z.object({
   title: z.string().trim().min(3, "Min 3 chars").max(60, "Max 60 chars"),
   description: z.string().trim().max(500, "Max 500 chars").optional(),
-  amount: z
-    .number({ message: "Amount is required" })
-    .positive("Must be positive"),
+  amount: z.number({ message: "Amount is required" }).positive("Must be positive"),
 });
 
 export type MilestoneInput = z.infer<typeof milestoneSchema>;
@@ -43,12 +41,8 @@ export type MilestoneInput = z.infer<typeof milestoneSchema>;
 export const materialSchema = z.object({
   vendor_name: z.string().trim().min(1, "Required"),
   item_name: z.string().trim().min(1, "Required"),
-  qty: z
-    .number({ message: "Qty required" })
-    .positive("Must be > 0"),
-  amount: z
-    .number({ message: "Amount required" })
-    .nonnegative("Must be ≥ 0"),
+  qty: z.number({ message: "Qty required" }).positive("Must be > 0"),
+  amount: z.number({ message: "Amount required" }).nonnegative("Must be ≥ 0"),
 });
 
 export type MaterialInput = z.infer<typeof materialSchema>;
@@ -58,13 +52,9 @@ export const postJobSchema = z
   .object({
     title: z.string().trim().min(3, "Min 3 chars").max(80, "Max 80 chars"),
     category: z.enum(JOB_CATEGORIES, {
-      message: "Select a category"
+      message: "Select a category",
     }),
-    description: z
-      .string()
-      .trim()
-      .min(20, "Min 20 chars")
-      .max(2000, "Max 2000 chars"),
+    description: z.string().trim().min(20, "Min 20 chars").max(2000, "Max 2000 chars"),
     location_text: z.string().trim().min(2, "Enter city/area"),
     lat: z.number().optional(),
     lng: z.number().optional(),
@@ -72,10 +62,7 @@ export const postJobSchema = z
       .number({ message: "Budget is required" })
       .min(500, "Minimum ₹500")
       .max(500000, "Maximum ₹5,00,000"),
-    milestones: z
-      .array(milestoneSchema)
-      .min(1, "At least 1 milestone")
-      .max(8, "Max 8 milestones"),
+    milestones: z.array(milestoneSchema).min(1, "At least 1 milestone").max(8, "Max 8 milestones"),
     materials: z.array(materialSchema).optional(),
   })
   .refine(
@@ -95,14 +82,8 @@ export type PostJobInput = z.infer<typeof postJobSchema>;
 export const applyJobSchema = z.object({
   job_id: z.string().uuid(),
   total_budget: z.number().positive(),
-  bid_amount: z
-    .number({ message: "Bid amount required" })
-    .positive("Must be positive"),
-  eta_days: z
-    .number({ message: "ETA required" })
-    .int()
-    .min(1, "Min 1 day")
-    .max(60, "Max 60 days"),
+  bid_amount: z.number({ message: "Bid amount required" }).positive("Must be positive"),
+  eta_days: z.number({ message: "ETA required" }).int().min(1, "Min 1 day").max(60, "Max 60 days"),
   message: z.string().trim().max(500, "Max 500 chars").optional(),
 });
 

@@ -39,9 +39,7 @@ async function fetchFeedPage({
 
   let query = supabase
     .from("jobs")
-    .select(
-      "id, title, category, location_text, total_budget, created_at, milestones(id)",
-    )
+    .select("id, title, category, location_text, total_budget, created_at, milestones(id)")
     .eq("status", "open")
     .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1);
 
@@ -88,26 +86,26 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     if (!user?.id) return;
     const supabase = createClient();
     const channel = supabase
-      .channel('worker-feed-jobs-changes')
+      .channel("worker-feed-jobs-changes")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
-        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "jobs", filter: "status=eq.open" },
+        () => queryClient.invalidateQueries({ queryKey: ["worker-feed"] }),
       )
       .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'jobs', filter: 'status=eq.open' },
-        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "jobs", filter: "status=eq.open" },
+        () => queryClient.invalidateQueries({ queryKey: ["worker-feed"] }),
       )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'jobs' },
-        () => queryClient.invalidateQueries({ queryKey: ['worker-feed'] }),
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "jobs" }, () =>
+        queryClient.invalidateQueries({ queryKey: ["worker-feed"] }),
       )
       .subscribe((status, err) => {
-        console.log('[worker-feed-realtime]', status, err ?? '');
+        console.log("[worker-feed-realtime]", status, err ?? "");
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, queryClient]);
 
   const { data: appliedJobIds = new Set<string>() } = useQuery({
@@ -125,19 +123,26 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     },
   });
 
-  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error, status: queryStatus } =
-    useInfiniteQuery({
-      queryKey: ["worker-feed", selectedCategories, sort],
-      staleTime: 30_000,
-      refetchOnWindowFocus: true,
-      refetchInterval: 60_000, // RLS-aware backstop: realtime UPDATE doesn't fire
-      // when a job moves off 'open' (worker loses SELECT
-      // access via jobs_select_visible). Poll every 60s.
-      queryFn: ({ pageParam }) =>
-        fetchFeedPage({ pageParam: pageParam as number, categories: selectedCategories, sort }),
-      initialPageParam: 0,
-      getNextPageParam: (lastPage) => lastPage.nextPage,
-    });
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    error,
+    status: queryStatus,
+  } = useInfiniteQuery({
+    queryKey: ["worker-feed", selectedCategories, sort],
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000, // RLS-aware backstop: realtime UPDATE doesn't fire
+    // when a job moves off 'open' (worker loses SELECT
+    // access via jobs_select_visible). Poll every 60s.
+    queryFn: ({ pageParam }) =>
+      fetchFeedPage({ pageParam: pageParam as number, categories: selectedCategories, sort }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+  });
 
   console.log("WorkerFeed DEBUG", { selectedCategories, queryStatus, data });
 

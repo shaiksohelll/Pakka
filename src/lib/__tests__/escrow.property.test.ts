@@ -104,10 +104,10 @@ describe("Escrow Property Tests (fast-check)", () => {
 
   it("invariant holds across 10,000 random transition sequences", () => {
     // Arbitrary for milestone amounts (1-5 milestones, amounts 100-50000)
-    const milestoneAmountsArb = fc.array(
-      fc.integer({ min: 100, max: 50000 }),
-      { minLength: 1, maxLength: 5 },
-    );
+    const milestoneAmountsArb = fc.array(fc.integer({ min: 100, max: 50000 }), {
+      minLength: 1,
+      maxLength: 5,
+    });
 
     fc.assert(
       fc.property(

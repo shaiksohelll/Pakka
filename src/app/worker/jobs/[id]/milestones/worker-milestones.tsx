@@ -4,14 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Send,
-  CheckCircle2,
-  Clock,
-  Shield,
-  Lock,
-  Loader2,
-} from "lucide-react";
+import { Send, CheckCircle2, Clock, Shield, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { submitMilestoneAction } from "@/app/_actions/escrow";
@@ -54,21 +47,15 @@ async function fetchWorkerMilestones(jobId: string) {
   const supabase = createClient();
 
   const [jobRes, msRes, walletRes] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select("id,title,total_budget,status,worker_id")
-      .eq("id", jobId)
-      .single(),
+    supabase.from("jobs").select("id,title,total_budget,status,worker_id").eq("id", jobId).single(),
     supabase
       .from("milestones")
-      .select("id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at")
+      .select(
+        "id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at",
+      )
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase
-      .from("wallets")
-      .select("available_balance,locked_balance")
-      .limit(1)
-      .single(),
+    supabase.from("wallets").select("available_balance,locked_balance").limit(1).single(),
   ]);
 
   if (jobRes.error) throw jobRes.error;
@@ -84,9 +71,9 @@ async function fetchWorkerMilestones(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-        available_balance: Number(walletRes.data.available_balance),
-        locked_balance: Number(walletRes.data.locked_balance),
-      }
+          available_balance: Number(walletRes.data.available_balance),
+          locked_balance: Number(walletRes.data.locked_balance),
+        }
       : ({ available_balance: 0, locked_balance: 0 } as WalletInfo),
   };
 }
@@ -130,41 +117,58 @@ export function WorkerMilestones({
     const supabase = createClient();
     const channel = supabase
       .channel(`worker-milestones-${jobId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'milestones',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'escrow_ledger',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'wallets',
-        filter: `profile_id=eq.${userId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "milestones",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "escrow_ledger",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "wallets",
+          filter: `profile_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[worker-milestones-realtime]', status, err ?? '');
+        console.log("[worker-milestones-realtime]", status, err ?? "");
       });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, jobId, queryClient]);
 
   // ── Submit handler ─────────────────────────────────────────────────────────────────
@@ -193,10 +197,7 @@ export function WorkerMilestones({
     } catch (err) {
       // Thrown errors (network, server crash). Return-shape errors are
       // handled in the `if (!result.success)` branch above.
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Submission failed. Please try again.";
+      const message = err instanceof Error ? err.message : "Submission failed. Please try again.";
       toast.error(message);
       queryClient.invalidateQueries({
         queryKey: ["worker-milestones", jobId],
@@ -241,9 +242,7 @@ export function WorkerMilestones({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Earned (this job)
           </p>
-          <p className="text-lg font-bold text-primary">
-            {formatInr(totalEarned)}
-          </p>
+          <p className="text-lg font-bold text-primary">{formatInr(totalEarned)}</p>
         </div>
       </section>
 
@@ -251,9 +250,7 @@ export function WorkerMilestones({
 
       {/* ── Milestone cards ── */}
       <section className="space-y-3">
-        <h2 className="text-base font-semibold">
-          Milestones ({milestones.length})
-        </h2>
+        <h2 className="text-base font-semibold">Milestones ({milestones.length})</h2>
 
         {milestones.map((m) => {
           const isInFlight = inFlight.has(m.id);
@@ -264,7 +261,7 @@ export function WorkerMilestones({
                 "rounded-xl border bg-card p-4 space-y-3 transition-all",
                 m.status === "disputed" && "border-red-200 bg-red-50/30",
                 (m.status === "approved" || m.status === "released") &&
-                "border-emerald-200 bg-emerald-50/30",
+                  "border-emerald-200 bg-emerald-50/30",
                 m.status === "funded" && "border-blue-200 bg-blue-50/30",
               )}
             >
@@ -275,9 +272,7 @@ export function WorkerMilestones({
                     {m.sequence}. {m.title}
                   </p>
                   {m.description && (
-                    <p className="text-xs text-muted-foreground">
-                      {m.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{m.description}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -303,17 +298,15 @@ export function WorkerMilestones({
                 <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
                   <Clock className="h-3.5 w-3.5 shrink-0" />
                   <span>
-                    Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}.
-                    Auto-releases if client takes no action.
+                    Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}. Auto-releases if
+                    client takes no action.
                   </span>
                 </div>
               )}
               {m.status === "disputed" && (
                 <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
                   <Shield className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Disputed by client. Under review. Funds remain locked.
-                  </span>
+                  <span>Disputed by client. Under review. Funds remain locked.</span>
                 </div>
               )}
               {(m.status === "approved" || m.status === "released") && (

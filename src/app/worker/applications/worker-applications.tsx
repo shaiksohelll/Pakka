@@ -48,25 +48,31 @@ export function WorkerApplications() {
     const channel = supabase
       .channel(channelName)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'job_applications',
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
           filter: `worker_id=eq.${user.id}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['worker-applications'] });
+          queryClient.invalidateQueries({ queryKey: ["worker-applications"] });
         },
       )
       .subscribe((status, err) => {
-        console.log(`[${channelName}]`, status, err ?? '');
+        console.log(`[${channelName}]`, status, err ?? "");
       });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, queryClient]);
 
-  const { data: applications, isLoading, error } = useQuery({
+  const {
+    data: applications,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["worker-applications", user?.id],
     staleTime: 10_000,
     enabled: !!user?.id,
@@ -74,10 +80,12 @@ export function WorkerApplications() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("job_applications")
-        .select(`
+        .select(
+          `
           id, job_id, bid_amount, eta_days, message, status, created_at,
           jobs!job_applications_job_id_fkey(title, category, total_budget)
-        `)
+        `,
+        )
         .eq("worker_id", user!.id)
         .order("created_at", { ascending: false });
 

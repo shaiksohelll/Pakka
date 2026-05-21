@@ -4,14 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Lock,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  Clock,
-  Shield,
-} from "lucide-react";
+import { Lock, CheckCircle2, AlertTriangle, Loader2, Clock, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import {
@@ -70,21 +63,15 @@ async function fetchMilestonesData(jobId: string) {
   const supabase = createClient();
 
   const [jobRes, msRes, walletRes, workerRes] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select("id,title,total_budget,status,worker_id")
-      .eq("id", jobId)
-      .single(),
+    supabase.from("jobs").select("id,title,total_budget,status,worker_id").eq("id", jobId).single(),
     supabase
       .from("milestones")
-      .select("id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at")
+      .select(
+        "id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at",
+      )
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase
-      .from("wallets")
-      .select("available_balance,locked_balance")
-      .limit(1)
-      .single(),
+    supabase.from("wallets").select("available_balance,locked_balance").limit(1).single(),
     // Get the worker name if assigned
     supabase
       .from("jobs")
@@ -109,9 +96,9 @@ async function fetchMilestonesData(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-        available_balance: Number(walletRes.data.available_balance),
-        locked_balance: Number(walletRes.data.locked_balance),
-      }
+          available_balance: Number(walletRes.data.available_balance),
+          locked_balance: Number(walletRes.data.locked_balance),
+        }
       : { available_balance: 0, locked_balance: 0 },
     workerName,
   };
@@ -154,35 +141,52 @@ export function ClientMilestones() {
     const supabase = createClient();
     const channel = supabase
       .channel(`client-milestones-${jobId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'milestones',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[client-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
-        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
-      })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'escrow_ledger',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[client-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'wallets',
-        filter: `profile_id=eq.${userId}`,
-      }, (payload) => {
-        console.log('[client-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['client-milestones', jobId] });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "milestones",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[client-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "escrow_ledger",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[client-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "wallets",
+          filter: `profile_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("[client-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[client-milestones-realtime]', status, err ?? '');
+        console.log("[client-milestones-realtime]", status, err ?? "");
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, jobId, queryClient]);
 
   // ── Action handlers ─────────────────────────────────────────────────────
@@ -296,9 +300,7 @@ export function ClientMilestones() {
       <div className="space-y-6">
         {/* ── Job header ── */}
         <section className="space-y-1">
-          <h1 className="text-xl font-bold text-primary leading-snug">
-            {job.title}
-          </h1>
+          <h1 className="text-xl font-bold text-primary leading-snug">{job.title}</h1>
           <p className="text-sm text-muted-foreground">
             Escrow milestones · {milestones.length} total
           </p>
@@ -310,9 +312,7 @@ export function ClientMilestones() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Available
             </p>
-            <p className="text-lg font-bold text-primary">
-              {formatInr(wallet.available_balance)}
-            </p>
+            <p className="text-lg font-bold text-primary">{formatInr(wallet.available_balance)}</p>
           </div>
           <div className="rounded-xl border bg-card p-4 space-y-1">
             <div className="flex items-center gap-1.5">
@@ -321,9 +321,7 @@ export function ClientMilestones() {
                 Locked
               </p>
             </div>
-            <p className="text-lg font-bold text-blue-700">
-              {formatInr(wallet.locked_balance)}
-            </p>
+            <p className="text-lg font-bold text-blue-700">{formatInr(wallet.locked_balance)}</p>
           </div>
         </section>
 
@@ -406,19 +404,13 @@ export function ClientMilestones() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDialog(null)}
-              disabled={isPending}
-            >
+            <Button variant="outline" onClick={() => setConfirmDialog(null)} disabled={isPending}>
               Cancel
             </Button>
             <Button
               className="gap-1.5 bg-blue-600 hover:bg-blue-700"
               disabled={isPending}
-              onClick={() =>
-                confirmDialog && handleFund(confirmDialog.milestoneId)
-              }
+              onClick={() => confirmDialog && handleFund(confirmDialog.milestoneId)}
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -440,24 +432,18 @@ export function ClientMilestones() {
           <DialogHeader>
             <DialogTitle>Release Funds</DialogTitle>
             <DialogDescription>
-              Release {formatInr(confirmDialog?.amount ?? 0)} to{" "}
-              {workerName}? <strong>This cannot be undone.</strong>
+              Release {formatInr(confirmDialog?.amount ?? 0)} to {workerName}?{" "}
+              <strong>This cannot be undone.</strong>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDialog(null)}
-              disabled={isPending}
-            >
+            <Button variant="outline" onClick={() => setConfirmDialog(null)} disabled={isPending}>
               Cancel
             </Button>
             <Button
               className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
               disabled={isPending}
-              onClick={() =>
-                confirmDialog && handleApprove(confirmDialog.milestoneId)
-              }
+              onClick={() => confirmDialog && handleApprove(confirmDialog.milestoneId)}
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -484,15 +470,12 @@ export function ClientMilestones() {
           <DialogHeader>
             <DialogTitle>Raise Dispute</DialogTitle>
             <DialogDescription>
-              Dispute &quot;{confirmDialog?.milestoneTitle}&quot;? Funds will remain
-              locked until resolved by our team.
+              Dispute &quot;{confirmDialog?.milestoneTitle}&quot;? Funds will remain locked until
+              resolved by our team.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <label
-              htmlFor="dispute-reason"
-              className="text-sm font-medium text-foreground"
-            >
+            <label htmlFor="dispute-reason" className="text-sm font-medium text-foreground">
               Reason for dispute
             </label>
             <Textarea
@@ -518,9 +501,7 @@ export function ClientMilestones() {
               variant="destructive"
               className="gap-1.5"
               disabled={isPending || disputeReason.trim().length < 10}
-              onClick={() =>
-                confirmDialog && handleDispute(confirmDialog.milestoneId)
-              }
+              onClick={() => confirmDialog && handleDispute(confirmDialog.milestoneId)}
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -564,7 +545,7 @@ function MilestoneCard({
         "rounded-xl border bg-card p-4 space-y-3 transition-all",
         m.status === "disputed" && "border-red-200 bg-red-50/30",
         (m.status === "approved" || m.status === "released") &&
-        "border-emerald-200 bg-emerald-50/30",
+          "border-emerald-200 bg-emerald-50/30",
       )}
     >
       {/* Header row */}
@@ -573,9 +554,7 @@ function MilestoneCard({
           <p className="text-sm font-semibold">
             {m.sequence}. {m.title}
           </p>
-          {m.description && (
-            <p className="text-xs text-muted-foreground">{m.description}</p>
-          )}
+          {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-sm font-bold">{formatInr(m.amount)}</span>
@@ -588,12 +567,11 @@ function MilestoneCard({
         <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
           <Clock className="h-3.5 w-3.5 shrink-0" />
           <span>
-            Worker submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}.
-            Auto-releases{" "}
+            Worker submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}. Auto-releases{" "}
             {new Date(m.auto_release_at) > new Date()
               ? relativeTime(m.auto_release_at).replace(" ago", "")
-              : "soon"}
-            {" "}if no action taken.
+              : "soon"}{" "}
+            if no action taken.
           </span>
         </div>
       )}

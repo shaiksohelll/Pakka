@@ -9,7 +9,6 @@ export type AuthActionResult = {
   redirectTo?: string;
 };
 
-
 export async function requestOtpAction(input: { phone: string }): Promise<AuthActionResult> {
   const parsed = phoneSchema.safeParse(input);
   if (!parsed.success) {
@@ -18,8 +17,6 @@ export async function requestOtpAction(input: { phone: string }): Promise<AuthAc
 
   const phone = `+91${parsed.data.phone}`;
   const redirectTo = `/login/verify?phone=${parsed.data.phone}`;
-
-
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
@@ -38,8 +35,6 @@ export async function resendOtpAction(input: { phone: string }): Promise<AuthAct
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid phone number." };
   }
-
-
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
