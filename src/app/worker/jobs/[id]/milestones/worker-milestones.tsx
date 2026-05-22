@@ -1,5 +1,6 @@
 "use client";
 
+import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
@@ -71,9 +72,9 @@ async function fetchWorkerMilestones(jobId: string) {
     })) as Milestone[],
     wallet: walletRes.data
       ? {
-          available_balance: Number(walletRes.data.available_balance),
-          locked_balance: Number(walletRes.data.locked_balance),
-        }
+        available_balance: Number(walletRes.data.available_balance),
+        locked_balance: Number(walletRes.data.locked_balance),
+      }
       : ({ available_balance: 0, locked_balance: 0 } as WalletInfo),
   };
 }
@@ -183,7 +184,7 @@ export function WorkerMilestones({
     try {
       const result = await submitMilestoneAction({
         milestone_id: milestoneId,
-        idempotency_key: crypto.randomUUID(),
+        idempotency_key: generateUuid(),
       });
 
       if (!result.success) {
@@ -261,7 +262,7 @@ export function WorkerMilestones({
                 "rounded-xl border bg-card p-4 space-y-3 transition-all",
                 m.status === "disputed" && "border-red-200 bg-red-50/30",
                 (m.status === "approved" || m.status === "released") &&
-                  "border-emerald-200 bg-emerald-50/30",
+                "border-emerald-200 bg-emerald-50/30",
                 m.status === "funded" && "border-blue-200 bg-blue-50/30",
               )}
             >

@@ -113,11 +113,11 @@ export async function topupWalletAction(
     };
   } catch (err) {
     console.error("[wallet.topupWalletAction] Unexpected error", err);
-    const msg = err instanceof Error ? err.message : "Unknown error";
     // TODO: Sentry.captureException(err);
-    return { success: false, error: msg };
+    return { success: false, error: "Could not top up wallet. Please try again." };
   }
 }
+
 
 // ── Withdraw Wallet ───────────────────────────────────────────────────────────
 // wallet → external: calls withdraw_wallet() SECURITY DEFINER function (test mode)
@@ -185,8 +185,7 @@ export async function withdrawWalletAction(
     };
   } catch (err) {
     console.error("[wallet.withdrawWalletAction] Unexpected error", err);
-    const msg = err instanceof Error ? err.message : "Unknown error";
     // TODO: Sentry.captureException(err);
-    return { success: false, error: msg };
+    return { success: false, error: "Could not withdraw from wallet. Please try again." };
   }
 }

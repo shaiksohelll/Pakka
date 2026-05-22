@@ -130,7 +130,6 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     fetchNextPage,
     hasNextPage,
     error,
-    status: queryStatus,
   } = useInfiniteQuery({
     queryKey: ["worker-feed", user?.id, selectedCategories, sort],
     staleTime: 30_000,
@@ -144,8 +143,6 @@ export function WorkerFeed({ workerKyc }: { workerKyc: "pending" | "verified" | 
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextPage,
   });
-
-  console.log("WorkerFeed DEBUG", { selectedCategories, queryStatus, data });
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useCallback(

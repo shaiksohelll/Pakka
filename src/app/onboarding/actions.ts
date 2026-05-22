@@ -147,7 +147,14 @@ export async function completeWorkerOnboardingAction(
 
   if (profileError) {
     // Clean up orphaned selfie if downstream DB write failed.
-    await supabase.storage.from("kyc").remove([selfiePath]);
+    const { error: cleanupError } = await supabase.storage.from("kyc").remove([selfiePath]);
+    if (cleanupError) {
+      console.error("[onboarding.completeWorker] Selfie cleanup failed after profileError", {
+        cleanupError,
+        selfiePath,
+      });
+      // TODO: Sentry.captureException(cleanupError)
+    }
     return { success: false, error: profileError.message };
   }
 
@@ -166,7 +173,14 @@ export async function completeWorkerOnboardingAction(
 
   if (workerError) {
     // Clean up orphaned selfie if downstream DB write failed.
-    await supabase.storage.from("kyc").remove([selfiePath]);
+    const { error: cleanupError } = await supabase.storage.from("kyc").remove([selfiePath]);
+    if (cleanupError) {
+      console.error("[onboarding.completeWorker] Selfie cleanup failed after workerError", {
+        cleanupError,
+        selfiePath,
+      });
+      // TODO: Sentry.captureException(cleanupError)
+    }
     return { success: false, error: workerError.message };
   }
 

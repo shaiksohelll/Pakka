@@ -1,5 +1,6 @@
 "use client";
 
+import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
@@ -59,12 +60,8 @@ type JobInfo = {
 };
 
 // ── Fetcher ───────────────────────────────────────────────────────────────────
-async function fetchMilestonesData(jobId: string) {
+async function fetchMilestonesData(jobId: string, userId: string) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("not_authenticated");
 
   const [jobRes, msRes, walletRes, workerRes] = await Promise.all([
     supabase.from("jobs").select("id,title,total_budget,status,worker_id").eq("id", jobId).single(),
@@ -78,7 +75,7 @@ async function fetchMilestonesData(jobId: string) {
     supabase
       .from("wallets")
       .select("available_balance,locked_balance")
-      .eq("profile_id", user.id)
+      .eq("profile_id", userId)
       .single(),
     // Get the worker name if assigned
     supabase
@@ -89,6 +86,10 @@ async function fetchMilestonesData(jobId: string) {
   ]);
 
   if (jobRes.error) throw jobRes.error;
+  if (msRes.error) throw msRes.error;
+  // PGRST116 = "no rows" → expected when wallet hasn't been created yet; fall through to zero-balance default.
+  if (walletRes.error && walletRes.error.code !== "PGRST116") throw walletRes.error;
+  // workerRes is a nice-to-have join (assigned worker name); allowed to fail silently → falls back to "Worker".
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workerName = (workerRes.data?.profiles as any)?.full_name ?? "Worker";
@@ -135,9 +136,10 @@ export function ClientMilestones() {
   const [disputeReason, setDisputeReason] = useState("");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["client-milestones", jobId],
+    queryKey: ["client-milestones", jobId, user?.id],
     staleTime: 10_000,
-    queryFn: () => fetchMilestonesData(jobId),
+    enabled: !!user?.id,
+    queryFn: () => fetchMilestonesData(jobId, user!.id),
   });
 
   // ── Realtime: milestone status changes ──────────────────────────────────
@@ -205,7 +207,7 @@ export function ClientMilestones() {
       try {
         const result = await fundMilestoneAction({
           milestone_id: milestoneId,
-          idempotency_key: crypto.randomUUID(),
+          idempotency_key: generateUuid(),
         });
         if (!result.success) {
           if (mountedRef.current) toast.error(result.error);
@@ -232,7 +234,7 @@ export function ClientMilestones() {
       try {
         const result = await approveMilestoneAction({
           milestone_id: milestoneId,
-          idempotency_key: crypto.randomUUID(),
+          idempotency_key: generateUuid(),
         });
         if (!result.success) {
           // Rollback by refetching
@@ -264,7 +266,7 @@ export function ClientMilestones() {
         const result = await disputeMilestoneAction({
           milestone_id: milestoneId,
           reason: disputeReason,
-          idempotency_key: crypto.randomUUID(),
+          idempotency_key: generateUuid(),
         });
         if (!result.success) {
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
