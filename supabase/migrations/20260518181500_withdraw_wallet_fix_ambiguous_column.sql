@@ -3,7 +3,7 @@
 -- which creates an implicit OUT variable that shadows wallets.available_balance.
 -- All wallets/escrow_ledger references in the body are now table-aliased.
 
-create or replace function withdraw_wallet(
+create or replace function public.withdraw_wallet(
   p_amount numeric,
   p_idempotency_key uuid
 )
@@ -13,7 +13,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path to 'public'
 as $$
 declare
   v_profile_id uuid;
@@ -83,4 +83,4 @@ begin
 end;
 $$;
 
-grant execute on function withdraw_wallet(numeric, uuid) to authenticated;
+grant execute on function public.withdraw_wallet(numeric, uuid) to authenticated;

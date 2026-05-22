@@ -91,6 +91,6 @@ grant execute on function public.withdraw_wallet(numeric, uuid) to authenticated
 
 -- Per-user idempotency: same (from_wallet, reference_id) cannot insert twice for withdraws.
 -- Mirrors topup's per-user hardening from 20260518002100; applied from day one for withdraw.
-create unique index if not exists escrow_ledger_withdraw_idempotency_idx
+create unique index if not exists idx_escrow_ledger_withdraw_owner_reference
   on public.escrow_ledger (from_wallet, reference_id)
-  where type = 'withdraw';
+  where type = 'withdraw';

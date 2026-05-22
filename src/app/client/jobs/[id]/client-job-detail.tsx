@@ -156,8 +156,9 @@ export function ClientJobDetail() {
   const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["client-job", jobId],
+    queryKey: ["client-job", jobId, user?.id],
     staleTime: 10_000,
+    enabled: !!user?.id,
     queryFn: () => fetchJobDetail(jobId),
   });
 

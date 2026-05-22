@@ -44,7 +44,7 @@ type WalletInfo = {
 };
 
 // ── Fetcher ────────────────────────────────────────────────────────────────────────
-async function fetchWorkerMilestones(jobId: string) {
+async function fetchWorkerMilestones(jobId: string, userId: string) {
   const supabase = createClient();
 
   const [jobRes, msRes, walletRes] = await Promise.all([
@@ -56,7 +56,7 @@ async function fetchWorkerMilestones(jobId: string) {
       )
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase.from("wallets").select("available_balance,locked_balance").limit(1).single(),
+    supabase.from("wallets").select("available_balance,locked_balance").eq("profile_id", userId).single(),
   ]);
 
   if (jobRes.error) throw jobRes.error;
@@ -106,9 +106,10 @@ export function WorkerMilestones({
   }, []);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["worker-milestones", jobId],
+    queryKey: ["worker-milestones", jobId, user?.id],
     staleTime: 10_000,
-    queryFn: () => fetchWorkerMilestones(jobId),
+    enabled: !!user?.id,
+    queryFn: () => fetchWorkerMilestones(jobId, user!.id),
   });
 
   // ── Realtime ─────────────────────────────────────────────────────────────────

@@ -332,21 +332,11 @@ export function WorkerOnboardingForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={currentStep === 0 ? "block" : "hidden"}>
-              <Step0 />
-            </div>
-            <div className={currentStep === 1 ? "block" : "hidden"}>
-              <Step1 />
-            </div>
-            <div className={currentStep === 2 ? "block" : "hidden"}>
-              <Step2 />
-            </div>
-            <div className={currentStep === 3 ? "block" : "hidden"}>
-              <Step3 />
-            </div>
-            <div className={currentStep === 4 ? "block" : "hidden"}>
-              <Step4 />
-            </div>
+            {currentStep === 0 && <Step0 />}
+            {currentStep === 1 && <Step1 />}
+            {currentStep === 2 && <Step2 />}
+            {currentStep === 3 && <Step3 />}
+            {currentStep === 4 && <Step4 />}
           </CardContent>
         </Card>
 

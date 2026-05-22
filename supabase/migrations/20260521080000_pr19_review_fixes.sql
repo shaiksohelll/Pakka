@@ -6,8 +6,13 @@
 -- D — Insert-first / catch unique_violation idempotency (mirrors topup_wallet)
 -- F — NULL-guard on p_amount
 -- I — public. schema qualifiers
--- E — Drop pakka.allow_milestone_status_change GUC; gate pg_cron context by
---     explicit session_user='postgres' AND current_user='postgres' on both guards
+-- E — DROP pakka.allow_milestone_status_change GUC entirely (was settable by any
+--     authenticated role via SET/set_config, bypassing the guards).
+--     Both guard_milestones_status and guard_jobs_status now allow status changes
+--     only when: (a) called from a SECURITY DEFINER function
+--     (current_user <> session_user), OR (b) running under the postgres superuser
+--     (session_user = 'postgres' AND current_user = 'postgres', i.e. pg_cron
+--     context), OR (c) called by an admin (public.is_admin()).
 -- H — RAISE NOTICE when auto_release_milestones skips a milestone for
 --     insufficient locked balance (visibility into silent skips)
 -- ─────────────────────────────────────────────────────────────────────────────
