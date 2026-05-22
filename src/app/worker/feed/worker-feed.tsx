@@ -39,7 +39,7 @@ async function fetchFeedPage({
 
   let query = supabase
     .from("jobs")
-    .select("id, title, category, location_text, total_budget, created_at, milestones(id)")
+    .select(`id, title, category, location_text, total_budget, created_at, milestones_count:milestones(count)`)
     .eq("status", "open")
     .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1);
 
@@ -63,7 +63,7 @@ async function fetchFeedPage({
     location_text: j.location_text,
     total_budget: Number(j.total_budget),
     created_at: j.created_at,
-    milestone_count: (j.milestones as unknown[]).length,
+    milestone_count: (j.milestones_count as unknown as { count: number }[])[0]?.count ?? 0,
   }));
 
   return {

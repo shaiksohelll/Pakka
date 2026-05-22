@@ -107,7 +107,22 @@ export default function WorkerAccountPage() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <main className="mx-auto max-w-[640px] px-4 py-8 pb-20 space-y-6">
+        <h1 className="text-2xl font-bold text-primary">Account</h1>
+        <Card>
+          <CardContent className="py-8 text-center space-y-3">
+            <p className="text-muted-foreground font-medium">Could not load your profile.</p>
+            <button className="underline text-sm" onClick={() => void load()}>
+              Retry
+            </button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
 
   const profileDefaults = {
     full_name: profile.full_name ?? "",

@@ -80,7 +80,8 @@ export function WithdrawDialog({ availableBalance }: { availableBalance: number 
   const handleSubmit = () => {
     if (inFlightRef.current || isPending) return;
     if (!Number.isFinite(amount) || amount < 100) {
-      toast.error("Amount must be at least ₹100.");
+      toast.error(`Amount must be at least ${formatInr(100)}.`);
+
       return;
     }
     if (amount > availableBalance) {

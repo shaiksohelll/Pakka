@@ -60,6 +60,9 @@ async function fetchWorkerMilestones(jobId: string, userId: string) {
   ]);
 
   if (jobRes.error) throw jobRes.error;
+  if (msRes.error) throw msRes.error;
+  // PGRST116 = "no rows" → expected when wallet hasn't been created yet; fall through to zero-balance default.
+  if (walletRes.error && walletRes.error.code !== "PGRST116") throw walletRes.error;
 
   return {
     job: {
@@ -199,8 +202,9 @@ export function WorkerMilestones({
     } catch (err) {
       // Thrown errors (network, server crash). Return-shape errors are
       // handled in the `if (!result.success)` branch above.
-      const message = err instanceof Error ? err.message : "Submission failed. Please try again.";
-      toast.error(message);
+      // Log the raw error for debugging; show a fixed user-safe message.
+      console.error("[worker-milestones:submit] unexpected", err);
+      toast.error("Submission failed. Please try again.");
       queryClient.invalidateQueries({
         queryKey: ["worker-milestones", jobId],
       });
