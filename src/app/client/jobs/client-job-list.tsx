@@ -52,8 +52,8 @@ export function ClientJobList() {
         .select(
           `
           id, title, category, status, total_budget, created_at,
-          milestones(id),
-          job_applications(id)
+          milestones_count:milestones(count),
+          applications_count:job_applications(count)
         `,
         )
         .eq("client_id", user!.id)
@@ -68,8 +68,9 @@ export function ClientJobList() {
         status: j.status as JobStatus,
         total_budget: Number(j.total_budget),
         created_at: j.created_at,
-        milestone_count: (j.milestones as unknown[]).length,
-        application_count: (j.job_applications as unknown[]).length,
+        // Supabase returns count aggregates as [{count: N}]
+        milestone_count: (j.milestones_count as unknown as { count: number }[])[0]?.count ?? 0,
+        application_count: (j.applications_count as unknown as { count: number }[])[0]?.count ?? 0,
       })) satisfies Job[];
     },
   });

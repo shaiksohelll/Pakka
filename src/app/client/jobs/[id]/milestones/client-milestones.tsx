@@ -284,6 +284,8 @@ export function ClientMilestones() {
     });
   }
 
+  // Auth still hydrating — show skeleton, not error.
+  if (!user?.id) return <MilestonesSkeleton />;
   if (isLoading) return <MilestonesSkeleton />;
   if (error || !data) {
     return (

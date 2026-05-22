@@ -40,7 +40,7 @@ Milestones State Transitions
 
 - Trigger: auto_release_milestones() scheduler
 - Effect: if auto_release_at <= now() and no dispute exists for milestone, milestone.status -> 'released'; worker wallet updated; ledger entry created; realtime notification.
-- Caller: Edge Function cron.
+- Caller: pg_cron (database scheduler).
 
 6. disputed -> resolved_client
 
@@ -73,5 +73,5 @@ Key Callers by Transition
 - submit_milestone: worker action
 - approve_milestone: client action
 - dispute_milestone: client action
-- auto_release_milestones: edge cron
+- auto_release_milestones: pg_cron (scheduled in DB; see 20260518225500_schedule_auto_release_cron.sql)
 - admin\_\*: admin role for overrides, refunds, releases, splits
