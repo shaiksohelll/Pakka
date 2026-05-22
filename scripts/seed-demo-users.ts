@@ -57,7 +57,8 @@ const DEMO_USERS: DemoUser[] = [
     role: "client",
     city: "Mumbai",
     available: 150000,
-    locked: 40000,
+    // locked = J1-M2 (Cabinet install, funded, ₹60k) — see upsertLedger ~L387
+    locked: 60000,
   },
   {
     phone: "+919876500002",
@@ -65,7 +66,8 @@ const DEMO_USERS: DemoUser[] = [
     role: "client",
     city: "Bengaluru",
     available: 80000,
-    locked: 0,
+    // locked = J2-M1 (Wiring + safety check, submitted, ₹20k) — see upsertLedger ~L419
+    locked: 20000,
   },
   {
     phone: "+919876500003",
@@ -73,7 +75,8 @@ const DEMO_USERS: DemoUser[] = [
     role: "client",
     city: "Hyderabad",
     available: 250000,
-    locked: 120000,
+    // locked = J3-M2 (First coat, disputed, ₹30k) — see upsertLedger ~L493
+    locked: 30000,
   },
   // Workers
   {

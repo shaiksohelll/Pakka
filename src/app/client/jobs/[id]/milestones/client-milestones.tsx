@@ -119,6 +119,9 @@ export function ClientMilestones() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const inFlightRef = useRef<Set<string>>(new Set());
+  // Per-intent idempotency key map. Key rotates only on success so that
+  // network-error retries send the same UUID and the server can deduplicate.
+  const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -126,7 +129,7 @@ export function ClientMilestones() {
       mountedRef.current = false;
     };
   }, []);
-  const { user } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "fund" | "approve" | "dispute";
     milestoneId: string;
@@ -199,6 +202,29 @@ export function ClientMilestones() {
     };
   }, [user?.id, jobId, queryClient]);
 
+  // ── Idempotency key helpers ──────────────────────────────────────────────
+  // Reuses an existing key for the same (action, milestoneId) pair so that
+  // a retry after a network drop sends the same UUID the server already saw.
+  // Clears only on success so the next distinct intent gets a fresh key.
+  function getOrCreateIdempotencyKey(
+    action: "fund" | "approve" | "dispute",
+    milestoneId: string,
+  ): string {
+    const k = `${action}:${milestoneId}`;
+    const existing = idempotencyKeysRef.current.get(k);
+    if (existing) return existing;
+    const fresh = generateUuid();
+    idempotencyKeysRef.current.set(k, fresh);
+    return fresh;
+  }
+
+  function clearIdempotencyKey(
+    action: "fund" | "approve" | "dispute",
+    milestoneId: string,
+  ): void {
+    idempotencyKeysRef.current.delete(`${action}:${milestoneId}`);
+  }
+
   // ── Action handlers ─────────────────────────────────────────────────────
   function handleFund(milestoneId: string) {
     if (inFlightRef.current.has(milestoneId)) return;
@@ -207,12 +233,13 @@ export function ClientMilestones() {
       try {
         const result = await fundMilestoneAction({
           milestone_id: milestoneId,
-          idempotency_key: generateUuid(),
+          idempotency_key: getOrCreateIdempotencyKey("fund", milestoneId),
         });
         if (!result.success) {
           if (mountedRef.current) toast.error(result.error);
           return;
         }
+        clearIdempotencyKey("fund", milestoneId);
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         if (mountedRef.current) {
@@ -234,7 +261,7 @@ export function ClientMilestones() {
       try {
         const result = await approveMilestoneAction({
           milestone_id: milestoneId,
-          idempotency_key: generateUuid(),
+          idempotency_key: getOrCreateIdempotencyKey("approve", milestoneId),
         });
         if (!result.success) {
           // Rollback by refetching
@@ -242,6 +269,7 @@ export function ClientMilestones() {
           if (mountedRef.current) toast.error(result.error);
           return;
         }
+        clearIdempotencyKey("approve", milestoneId);
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
         if (mountedRef.current) {
@@ -266,13 +294,14 @@ export function ClientMilestones() {
         const result = await disputeMilestoneAction({
           milestone_id: milestoneId,
           reason: disputeReason,
-          idempotency_key: generateUuid(),
+          idempotency_key: getOrCreateIdempotencyKey("dispute", milestoneId),
         });
         if (!result.success) {
           queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
           if (mountedRef.current) toast.error(result.error);
           return;
         }
+        clearIdempotencyKey("dispute", milestoneId);
         queryClient.invalidateQueries({ queryKey: ["client-milestones", jobId] });
         if (mountedRef.current) {
           toast.success("Dispute raised. Our team will review this.");
@@ -285,6 +314,8 @@ export function ClientMilestones() {
   }
 
   // Auth still hydrating — show skeleton, not error.
+  if (isAuthLoading) return <MilestonesSkeleton />;
+  // Not authenticated (middleware will redirect; this guards the brief boundary).
   if (!user?.id) return <MilestonesSkeleton />;
   if (isLoading) return <MilestonesSkeleton />;
   if (error || !data) {

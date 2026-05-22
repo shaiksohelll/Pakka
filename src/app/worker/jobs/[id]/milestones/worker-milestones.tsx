@@ -90,11 +90,14 @@ export function WorkerMilestones({
 }) {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { user } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
 
   // Synchronous gate (catches double-clicks before React re-renders) +
   // per-milestone in-flight state (so only the clicked button spins).
   const inFlightRef = useRef<Set<string>>(new Set());
+  // Per-intent idempotency key map. Key rotates only on success so that
+  // network-error retries send the same UUID and the server can deduplicate.
+  const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
 
   // Mounted flag: used to skip setState in handleSubmit's finally block if
@@ -176,6 +179,19 @@ export function WorkerMilestones({
     };
   }, [user?.id, jobId, queryClient]);
 
+  // ── Idempotency key helpers ──────────────────────────────────────────────
+  function getOrCreateIdempotencyKey(milestoneId: string): string {
+    const existing = idempotencyKeysRef.current.get(milestoneId);
+    if (existing) return existing;
+    const fresh = generateUuid();
+    idempotencyKeysRef.current.set(milestoneId, fresh);
+    return fresh;
+  }
+
+  function clearIdempotencyKey(milestoneId: string): void {
+    idempotencyKeysRef.current.delete(milestoneId);
+  }
+
   // ── Submit handler ─────────────────────────────────────────────────────────────────
   async function handleSubmit(milestoneId: string) {
     // Synchronous gate: a second click on the same milestone returns
@@ -188,12 +204,13 @@ export function WorkerMilestones({
     try {
       const result = await submitMilestoneAction({
         milestone_id: milestoneId,
-        idempotency_key: generateUuid(),
+        idempotency_key: getOrCreateIdempotencyKey(milestoneId),
       });
 
       if (!result.success) {
         toast.error(result.error);
       } else {
+        clearIdempotencyKey(milestoneId);
         toast.success("Milestone submitted for review!");
       }
       queryClient.invalidateQueries({
@@ -202,6 +219,7 @@ export function WorkerMilestones({
     } catch (err) {
       // Thrown errors (network, server crash). Return-shape errors are
       // handled in the `if (!result.success)` branch above.
+      // TODO: Sentry.captureException(err)
       // Log the raw error for debugging; show a fixed user-safe message.
       console.error("[worker-milestones:submit] unexpected", err);
       toast.error("Submission failed. Please try again.");
@@ -218,6 +236,7 @@ export function WorkerMilestones({
     }
   }
 
+  if (isAuthLoading || !user?.id) return <WorkerMilestonesSkeleton />;
   if (isLoading) return <WorkerMilestonesSkeleton />;
   if (error || !data) {
     return (

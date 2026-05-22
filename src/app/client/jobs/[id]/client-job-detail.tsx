@@ -153,7 +153,7 @@ export function ClientJobDetail() {
   const { id: jobId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
-  const { user } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["client-job", jobId, user?.id],
@@ -257,6 +257,8 @@ export function ClientJobDetail() {
     });
   }
 
+  // Auth still hydrating — show skeleton, not error.
+  if (isAuthLoading || !user?.id) return <ClientJobDetailSkeleton />;
   if (isLoading) return <ClientJobDetailSkeleton />;
   if (error || !data) {
     return (

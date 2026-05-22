@@ -46,6 +46,15 @@ const blurOnWheel = (e: React.WheelEvent<HTMLInputElement>) => {
   e.currentTarget.blur();
 };
 
+// Guard parseFloat against transient typed values like '-' or '.' that yield
+// NaN and would leak '₹NaN' into formatting. Treats non-finite parses as
+// undefined so react-hook-form keeps the field empty rather than invalid.
+const parseFiniteFloat = (raw: string): number | undefined => {
+  if (!raw) return undefined;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export function PostJobForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -279,7 +288,7 @@ export function PostJobForm() {
                   value={watch("lat") ?? ""}
                   onWheel={blurOnWheel}
                   onChange={(e) =>
-                    setValue("lat", e.target.value ? parseFloat(e.target.value) : undefined, {
+                    setValue("lat", parseFiniteFloat(e.target.value), {
                       shouldValidate: true,
                     })
                   }
@@ -295,7 +304,7 @@ export function PostJobForm() {
                   value={watch("lng") ?? ""}
                   onWheel={blurOnWheel}
                   onChange={(e) =>
-                    setValue("lng", e.target.value ? parseFloat(e.target.value) : undefined, {
+                    setValue("lng", parseFiniteFloat(e.target.value), {
                       shouldValidate: true,
                     })
                   }
@@ -325,9 +334,7 @@ export function PostJobForm() {
                   onChange={(e) =>
                     setValue(
                       "total_budget",
-                      e.target.value
-                        ? parseFloat(e.target.value)
-                        : (undefined as unknown as number),
+                      parseFiniteFloat(e.target.value) as unknown as number,
                       { shouldValidate: true },
                     )
                   }
@@ -424,9 +431,7 @@ export function PostJobForm() {
                       onChange={(e) =>
                         setValue(
                           `milestones.${i}.amount`,
-                          e.target.value
-                            ? parseFloat(e.target.value)
-                            : (undefined as unknown as number),
+                          parseFiniteFloat(e.target.value) as unknown as number,
                           { shouldValidate: true },
                         )
                       }
@@ -519,9 +524,7 @@ export function PostJobForm() {
                       onChange={(e) =>
                         setValue(
                           `materials.${i}.qty`,
-                          e.target.value
-                            ? parseFloat(e.target.value)
-                            : (undefined as unknown as number),
+                          parseFiniteFloat(e.target.value) as unknown as number,
                           { shouldValidate: true },
                         )
                       }
@@ -543,9 +546,7 @@ export function PostJobForm() {
                         onChange={(e) =>
                           setValue(
                             `materials.${i}.amount`,
-                            e.target.value
-                              ? parseFloat(e.target.value)
-                              : (undefined as unknown as number),
+                            parseFiniteFloat(e.target.value) as unknown as number,
                             { shouldValidate: true },
                           )
                         }
