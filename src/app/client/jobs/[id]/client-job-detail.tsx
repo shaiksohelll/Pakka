@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { useParams } from "next/navigation";
@@ -66,7 +67,9 @@ async function fetchJobDetail(jobId: string) {
   const [jobRes, msRes, matRes, appRes] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id,title,category,description,location_text,total_budget,status,created_at,worker_id")
+      .select(
+        "id,title,category,description,location_text,total_budget,status,created_at,worker_id",
+      )
       .eq("id", jobId)
       .single(),
     supabase
@@ -101,16 +104,14 @@ async function fetchJobDetail(jobId: string) {
 
   if (workerIds.length > 0) {
     const { data: workerSummaries, error: wsErr } = await supabase.rpc(
-      'get_application_worker_summary',
+      "get_application_worker_summary",
       { worker_ids: workerIds },
     );
     if (wsErr) {
-      console.error('[client-job-detail] worker-summary RPC error:', wsErr);
+      console.error("[client-job-detail] worker-summary RPC error:", wsErr);
       // Degrade gracefully: leave workerSummaryMap empty, cards render fallback names/trust tiers.
     } else {
-      workerSummaryMap = new Map(
-        (workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]),
-      );
+      workerSummaryMap = new Map((workerSummaries ?? []).map((w: WorkerSummary) => [w.id, w]));
     }
   }
 
@@ -151,13 +152,15 @@ async function fetchJobDetail(jobId: string) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export function ClientJobDetail() {
   const { id: jobId } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
-  const { user } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["client-job", jobId],
+    queryKey: ["client-job", jobId, user?.id],
     staleTime: 10_000,
+    enabled: !!user?.id,
     queryFn: () => fetchJobDetail(jobId),
   });
 
@@ -169,58 +172,75 @@ export function ClientJobDetail() {
     const supabase = createClient();
     const channel = supabase
       .channel(`client-job-detail-${jobId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'jobs',
-        filter: `id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[client-job-detail-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
-      })
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'job_applications',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[client-job-detail-realtime] event:',
-          payload.table, payload.eventType);
-        // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
-        // blocked by RLS for any non-self row, always returning null and
-        // falling back to the literal "a worker" in the toast. ADR-0034.
-        const workerId = (payload.new as { worker_id: string }).worker_id;
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[client-job-detail-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[client-job-detail-realtime] event:", payload.table, payload.eventType);
+          // Reuse the SECURITY DEFINER RPC — direct .from("profiles").eq() is
+          // blocked by RLS for any non-self row, always returning null and
+          // falling back to the literal "a worker" in the toast. ADR-0034.
+          const workerId = (payload.new as { worker_id: string }).worker_id;
 
-        // Trigger refresh immediately — DO NOT gate on RPC.
-        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
+          // Trigger refresh immediately — DO NOT gate on RPC.
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
 
-        // Enrich toast with worker name; failure is non-fatal.
-        Promise.resolve(
-          supabase.rpc('get_application_worker_summary', { worker_ids: [workerId] }),
-        )
-          .then(({ data, error }) => {
-            if (error) {
-              console.error('[client-job-detail-realtime] RPC error:', error);
-              toast.info('Someone just applied!');
-              return;
-            }
-            const name = data?.[0]?.full_name ?? 'Someone';
-            toast.info(`${name} just applied!`);
-          })
-          .catch((err: unknown) => {
-            console.error('[client-job-detail-realtime] RPC rejected:', err);
-            toast.info('Someone just applied!');
-          });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'job_applications',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[client-job-detail-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({ queryKey: ['client-job', jobId] });
-      })
+          // Enrich toast with worker name; failure is non-fatal.
+          Promise.resolve(
+            supabase.rpc("get_application_worker_summary", { worker_ids: [workerId] }),
+          )
+            .then(({ data, error }) => {
+              if (error) {
+                console.error("[client-job-detail-realtime] RPC error:", error);
+                toast.info("Someone just applied!");
+                return;
+              }
+              const name = data?.[0]?.full_name ?? "Someone";
+              toast.info(`${name} just applied!`);
+            })
+            .catch((err: unknown) => {
+              console.error("[client-job-detail-realtime] RPC rejected:", err);
+              toast.info("Someone just applied!");
+            });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[client-job-detail-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ["client-job", jobId] });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[client-job-detail-realtime]', status, err ?? '');
+        console.log("[client-job-detail-realtime]", status, err ?? "");
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, jobId, queryClient]);
 
   // ── Accept handler ────────────────────────────────────────────────────────
@@ -239,7 +259,18 @@ export function ClientJobDetail() {
     });
   }
 
+  // ── Auth redirect ─────────────────────────────────────────────────────────
+  // Redirect is scheduled in useEffect, not during render, to avoid the
+  // React render-phase side-effect anti-pattern (Rules of Hooks).
+  useEffect(() => {
+    if (!isAuthLoading && !user?.id) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, user, router]);
+  // Auth still hydrating or redirect in flight — show skeleton.
+  if (isAuthLoading || !user?.id) return <ClientJobDetailSkeleton />;
   if (isLoading) return <ClientJobDetailSkeleton />;
+
   if (error || !data) {
     return (
       <div className="rounded-xl border bg-destructive/5 p-6 text-center text-destructive">
@@ -259,7 +290,9 @@ export function ClientJobDetail() {
           <StatusBadge variant={job.status} />
         </div>
         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span className="text-sm text-muted-foreground">{CATEGORY_LABELS[job.category] ?? job.category}</span>
+          <span className="text-sm text-muted-foreground">
+            {CATEGORY_LABELS[job.category] ?? job.category}
+          </span>
           <span>·</span>
           <span>{relativeTime(job.created_at)}</span>
         </div>
@@ -288,10 +321,10 @@ export function ClientJobDetail() {
               className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
             >
               <div className="space-y-0.5">
-                <p className="text-sm font-medium">{m.sequence}. {m.title}</p>
-                {m.description && (
-                  <p className="text-xs text-muted-foreground">{m.description}</p>
-                )}
+                <p className="text-sm font-medium">
+                  {m.sequence}. {m.title}
+                </p>
+                {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-3">
                 <span className="text-sm font-semibold">{formatInr(m.amount)}</span>

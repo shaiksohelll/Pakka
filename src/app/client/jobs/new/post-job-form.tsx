@@ -7,7 +7,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus, Trash2, MapPin, Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { postJobAction } from "@/app/_actions/jobs";
-import { postJobSchema, JOB_CATEGORIES, CATEGORY_LABELS, type PostJobInput } from "@/lib/schemas/jobs";
+import {
+  postJobSchema,
+  JOB_CATEGORIES,
+  CATEGORY_LABELS,
+  type PostJobInput,
+} from "@/lib/schemas/jobs";
 import { formatInr } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +44,15 @@ type FieldError = { message?: string };
 // doesn't silently increment/decrement the value while the input has focus.
 const blurOnWheel = (e: React.WheelEvent<HTMLInputElement>) => {
   e.currentTarget.blur();
+};
+
+// Guard parseFloat against transient typed values like '-' or '.' that yield
+// NaN and would leak '₹NaN' into formatting. Treats non-finite parses as
+// undefined so react-hook-form keeps the field empty rather than invalid.
+const parseFiniteFloat = (raw: string): number | undefined => {
+  if (!raw) return undefined;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : undefined;
 };
 
 export function PostJobForm() {
@@ -177,14 +191,8 @@ export function PostJobForm() {
             <h2 className="text-xl font-semibold text-primary">Job Basics</h2>
             <div className="space-y-1.5">
               <Label htmlFor="title">Job Title</Label>
-              <Input
-                id="title"
-                placeholder="e.g. Fix bathroom tiles"
-                {...register("title")}
-              />
-              {errors.title && (
-                <p className="text-xs text-destructive">{errors.title.message}</p>
-              )}
+              <Input id="title" placeholder="e.g. Fix bathroom tiles" {...register("title")} />
+              {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -197,9 +205,7 @@ export function PostJobForm() {
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a category">
-                    {watch("category")
-                      ? CATEGORY_LABELS[watch("category")!]
-                      : undefined}
+                    {watch("category") ? CATEGORY_LABELS[watch("category")!] : undefined}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -282,7 +288,7 @@ export function PostJobForm() {
                   value={watch("lat") ?? ""}
                   onWheel={blurOnWheel}
                   onChange={(e) =>
-                    setValue("lat", e.target.value ? parseFloat(e.target.value) : undefined, {
+                    setValue("lat", parseFiniteFloat(e.target.value), {
                       shouldValidate: true,
                     })
                   }
@@ -298,7 +304,7 @@ export function PostJobForm() {
                   value={watch("lng") ?? ""}
                   onWheel={blurOnWheel}
                   onChange={(e) =>
-                    setValue("lng", e.target.value ? parseFloat(e.target.value) : undefined, {
+                    setValue("lng", parseFiniteFloat(e.target.value), {
                       shouldValidate: true,
                     })
                   }
@@ -328,7 +334,7 @@ export function PostJobForm() {
                   onChange={(e) =>
                     setValue(
                       "total_budget",
-                      e.target.value ? parseFloat(e.target.value) : (undefined as unknown as number),
+                      parseFiniteFloat(e.target.value) as unknown as number,
                       { shouldValidate: true },
                     )
                   }
@@ -338,9 +344,7 @@ export function PostJobForm() {
                 <p className="text-xs text-destructive">{errors.total_budget.message}</p>
               )}
               {totalBudget > 0 && (
-                <p className="text-sm font-medium text-primary">
-                  = {formatInr(totalBudget)}
-                </p>
+                <p className="text-sm font-medium text-primary">= {formatInr(totalBudget)}</p>
               )}
             </div>
           </div>
@@ -427,7 +431,7 @@ export function PostJobForm() {
                       onChange={(e) =>
                         setValue(
                           `milestones.${i}.amount`,
-                          e.target.value ? parseFloat(e.target.value) : (undefined as unknown as number),
+                          parseFiniteFloat(e.target.value) as unknown as number,
                           { shouldValidate: true },
                         )
                       }
@@ -448,7 +452,11 @@ export function PostJobForm() {
                 variant="outline"
                 className="w-full gap-2"
                 onClick={() =>
-                  appendMilestone({ title: "", description: "", amount: undefined as unknown as number })
+                  appendMilestone({
+                    title: "",
+                    description: "",
+                    amount: undefined as unknown as number,
+                  })
                 }
               >
                 <Plus className="h-4 w-4" />
@@ -516,7 +524,7 @@ export function PostJobForm() {
                       onChange={(e) =>
                         setValue(
                           `materials.${i}.qty`,
-                          e.target.value ? parseFloat(e.target.value) : (undefined as unknown as number),
+                          parseFiniteFloat(e.target.value) as unknown as number,
                           { shouldValidate: true },
                         )
                       }
@@ -538,7 +546,7 @@ export function PostJobForm() {
                         onChange={(e) =>
                           setValue(
                             `materials.${i}.amount`,
-                            e.target.value ? parseFloat(e.target.value) : (undefined as unknown as number),
+                            parseFiniteFloat(e.target.value) as unknown as number,
                             { shouldValidate: true },
                           )
                         }
@@ -554,7 +562,12 @@ export function PostJobForm() {
               variant="outline"
               className="w-full gap-2"
               onClick={() =>
-                appendMaterial({ vendor_name: "", item_name: "", qty: undefined as unknown as number, amount: undefined as unknown as number })
+                appendMaterial({
+                  vendor_name: "",
+                  item_name: "",
+                  qty: undefined as unknown as number,
+                  amount: undefined as unknown as number,
+                })
               }
             >
               <Plus className="h-4 w-4" />
@@ -583,9 +596,7 @@ export function PostJobForm() {
             </ReviewSection>
             <ReviewSection label="Location">{watch("location_text")}</ReviewSection>
             <ReviewSection label="Total Budget">
-              <span className="text-lg font-bold text-primary">
-                {formatInr(totalBudget)}
-              </span>
+              <span className="text-lg font-bold text-primary">{formatInr(totalBudget)}</span>
             </ReviewSection>
 
             <ReviewSection label={`Milestones (${milestones.length})`}>
@@ -621,12 +632,7 @@ export function PostJobForm() {
       <div className="fixed inset-x-0 bottom-14 z-20 border-t bg-background/95 px-4 py-4 backdrop-blur max-w-[640px] mx-auto">
         <div className="flex gap-3">
           {step > 1 && (
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 gap-1"
-              onClick={goPrev}
-            >
+            <Button type="button" variant="outline" className="flex-1 gap-1" onClick={goPrev}>
               <ChevronLeft className="h-4 w-4" />
               Back
             </Button>
@@ -653,18 +659,10 @@ export function PostJobForm() {
   );
 }
 
-function ReviewSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function ReviewSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border bg-card p-4 space-y-1.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <div className="text-foreground">{children}</div>
     </div>
   );

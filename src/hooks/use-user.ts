@@ -21,22 +21,22 @@ export function useUser(): UseUserResult {
   // components don't render with a phantom user for up to staleTime (5 min).
   useEffect(() => {
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
-        if (event === "SIGNED_OUT") {
-          queryClient.removeQueries({ queryKey: ["current-user"] });
-        } else if (event === "SIGNED_IN") {
-          queryClient.invalidateQueries({ queryKey: ["current-user"] });
-        }
-      },
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["current-user"] });
+      } else if (event === "SIGNED_IN") {
+        queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      }
+    });
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
   const query = useQuery({
     queryKey: ["current-user"],
-    staleTime: 5 * 60 * 1000,  // user identity stable for 5 min
-    gcTime: 30 * 60 * 1000,    // keep across SPA navigation
+    staleTime: 5 * 60 * 1000, // user identity stable for 5 min
+    gcTime: 30 * 60 * 1000, // keep across SPA navigation
     queryFn: async () => {
       const supabase = createClient();
       const {

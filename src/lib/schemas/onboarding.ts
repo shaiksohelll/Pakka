@@ -79,9 +79,13 @@ export const workerOnboardingSchema = z
       .trim()
       .toUpperCase()
       .regex(/^[0-9A-Z]{4}$/, "Enter PAN last 4."),
-    selfie: z.any()
+    selfie: z
+      .any()
       .refine((v) => typeof window === "undefined" || v instanceof File, "Selfie required")
-      .refine((v) => typeof window === "undefined" || (v instanceof File && v.size < 5_000_000), "Max 5MB"),
+      .refine(
+        (v) => typeof window === "undefined" || (v instanceof File && v.size < 5_000_000),
+        "Max 5MB",
+      ),
     categories: z
       .array(z.enum(workerCategories))
       .min(1, "Select at least one category.")

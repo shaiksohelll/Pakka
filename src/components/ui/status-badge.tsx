@@ -35,15 +35,15 @@ type StatusVariant =
   // KYC
   | "verified";
 
-const VARIANT_MAP: Record<
-  StatusVariant,
-  { label: string; className: string }
-> = {
+const VARIANT_MAP: Record<StatusVariant, { label: string; className: string }> = {
   // Job
   draft: { label: "Draft", className: "bg-gray-100 text-gray-700 border-gray-200" },
   open: { label: "Open", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   assigned: { label: "Assigned", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  in_progress: { label: "In Progress", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  in_progress: {
+    label: "In Progress",
+    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  },
   completed: { label: "Completed", className: "bg-green-50 text-green-700 border-green-200" },
   cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
   disputed: { label: "Disputed", className: "bg-red-50 text-red-600 border-red-200" },
@@ -81,7 +81,11 @@ export function StatusBadge({ variant, className }: StatusBadgeProps) {
     return (
       <Badge
         variant="outline"
-        className={cn("text-xs font-medium", "bg-gray-100 text-gray-400 border-gray-200", className)}
+        className={cn(
+          "text-xs font-medium",
+          "bg-gray-100 text-gray-400 border-gray-200",
+          className,
+        )}
       >
         —
       </Badge>

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { TopUpDialog } from "@/components/features/topup-dialog";
+import { WithdrawDialog } from "@/components/features/withdraw-dialog";
 import { formatInr, relativeTime } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -163,8 +164,9 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <TopUpDialog />
+      <div className="flex justify-end gap-2">
+        {role === "client" && <TopUpDialog />}
+        {role === "worker" && <WithdrawDialog availableBalance={wallet.available_balance} />}
       </div>
 
       {/* ── Locked breakdown (client only) ── */}

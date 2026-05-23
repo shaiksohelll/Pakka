@@ -149,7 +149,7 @@ Branch naming: <type>/<scope>-<short-description>, kebab-case.
 
 ## Migrations
 
-- Filename: supabase/migrations/<YYYYMMDDHHMMSS>_<verb_noun>.sql
+- Filename: supabase/migrations/<YYYYMMDDHHMMSS>\_<verb_noun>.sql
 - Timestamps in IST — no need to convert
 - Idempotent where possible: create or replace function, do $$ … exception when duplicate_object then null end $$, add column if not exists
 - One migration per logical change. Don't bundle unrelated schema work.

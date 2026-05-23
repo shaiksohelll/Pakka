@@ -80,11 +80,7 @@ export function createState(
  * pending → funded
  * client.available -= amount, client.locked += amount
  */
-export function fundMilestone(
-  state: EscrowState,
-  milestoneId: string,
-  clientId: string,
-): void {
+export function fundMilestone(state: EscrowState, milestoneId: string, clientId: string): void {
   const ms = state.milestones.find((m) => m.id === milestoneId);
   if (!ms) throw new Error("Milestone not found");
   if (ms.status !== "pending") throw new Error(`Cannot fund: status=${ms.status}`);
@@ -112,10 +108,7 @@ export function fundMilestone(
  * funded → submitted
  * No wallet changes, just set submitted_at and auto_release_at
  */
-export function submitMilestone(
-  state: EscrowState,
-  milestoneId: string,
-): void {
+export function submitMilestone(state: EscrowState, milestoneId: string): void {
   const ms = state.milestones.find((m) => m.id === milestoneId);
   if (!ms) throw new Error("Milestone not found");
   if (ms.status !== "funded") throw new Error(`Cannot submit: status=${ms.status}`);
@@ -163,10 +156,7 @@ export function approveMilestone(
  * submitted → disputed
  * No wallet changes — funds stay locked
  */
-export function disputeMilestone(
-  state: EscrowState,
-  milestoneId: string,
-): void {
+export function disputeMilestone(state: EscrowState, milestoneId: string): void {
   const ms = state.milestones.find((m) => m.id === milestoneId);
   if (!ms) throw new Error("Milestone not found");
   if (ms.status !== "submitted" && ms.status !== "funded")
@@ -179,11 +169,7 @@ export function disputeMilestone(
  * disputed → refunded (admin refund to client)
  * client.locked -= amount, client.available += amount
  */
-export function adminRefund(
-  state: EscrowState,
-  milestoneId: string,
-  clientId: string,
-): void {
+export function adminRefund(state: EscrowState, milestoneId: string, clientId: string): void {
   const ms = state.milestones.find((m) => m.id === milestoneId);
   if (!ms) throw new Error("Milestone not found");
   if (ms.status !== "disputed" && ms.status !== "funded")
@@ -219,8 +205,7 @@ export function adminForceRelease(
 ): void {
   const ms = state.milestones.find((m) => m.id === milestoneId);
   if (!ms) throw new Error("Milestone not found");
-  if (ms.status !== "disputed")
-    throw new Error(`Cannot force-release: status=${ms.status}`);
+  if (ms.status !== "disputed") throw new Error(`Cannot force-release: status=${ms.status}`);
 
   const clientWallet = state.wallets[clientId];
   const workerWallet = state.wallets[workerId];
@@ -252,11 +237,7 @@ export function autoRelease(
 ): number {
   let count = 0;
   for (const ms of state.milestones) {
-    if (
-      ms.status === "submitted" &&
-      ms.auto_release_at !== null &&
-      ms.auto_release_at < now
-    ) {
+    if (ms.status === "submitted" && ms.auto_release_at !== null && ms.auto_release_at < now) {
       approveMilestone(state, ms.id, clientId, workerId);
       count++;
     }
@@ -315,10 +296,7 @@ export function verifyZeroSum(state: EscrowState): {
  * Simplified invariant: total money is conserved.
  * Sum of all (available + locked) across all wallets = initial total.
  */
-export function verifyConservation(
-  state: EscrowState,
-  initialTotal: number,
-): boolean {
+export function verifyConservation(state: EscrowState, initialTotal: number): boolean {
   const currentTotal = Object.values(state.wallets).reduce(
     (sum, w) => sum + w.available + w.locked,
     0,

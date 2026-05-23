@@ -11,7 +11,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-
 // ---------------------------------------------------------------------------
 // Env + client
 // ---------------------------------------------------------------------------
@@ -52,15 +51,79 @@ type DemoUser = {
 
 const DEMO_USERS: DemoUser[] = [
   // Clients
-  { phone: "+919876500001", name: "Priya Sharma",  role: "client", city: "Mumbai",    available: 150000, locked: 40000 },
-  { phone: "+919876500002", name: "Rohit Mehta",   role: "client", city: "Bengaluru", available: 80000,  locked: 0 },
-  { phone: "+919876500003", name: "Anjali Reddy",  role: "client", city: "Hyderabad", available: 250000, locked: 120000 },
+  {
+    phone: "+919876500001",
+    name: "Priya Sharma",
+    role: "client",
+    city: "Mumbai",
+    available: 150000,
+    // locked = J1-M2 (Cabinet install, funded, ₹60k) — see upsertLedger ~L387
+    locked: 60000,
+  },
+  {
+    phone: "+919876500002",
+    name: "Rohit Mehta",
+    role: "client",
+    city: "Bengaluru",
+    available: 80000,
+    // locked = J2-M1 (Wiring + safety check, submitted, ₹20k) — see upsertLedger ~L419
+    locked: 20000,
+  },
+  {
+    phone: "+919876500003",
+    name: "Anjali Reddy",
+    role: "client",
+    city: "Hyderabad",
+    available: 250000,
+    // locked = J3-M2 (First coat, disputed, ₹30k) — see upsertLedger ~L493
+    locked: 30000,
+  },
   // Workers
-  { phone: "+919876500011", name: "Ravi Kumar",  role: "worker", city: "Mumbai",    kyc: "verified", trust: "gold",   categories: ["masonry", "plumbing"] },
-  { phone: "+919876500012", name: "Suresh Patel", role: "worker", city: "Pune",      kyc: "verified", trust: "silver", categories: ["electrical"] },
-  { phone: "+919876500013", name: "Manoj Yadav",  role: "worker", city: "Bengaluru", kyc: "verified", trust: "bronze", categories: ["painting", "carpentry"] },
-  { phone: "+919876500014", name: "Deepak Singh", role: "worker", city: "Hyderabad", kyc: "pending",  trust: "bronze", categories: ["plumbing"] },
-  { phone: "+919876500015", name: "Arjun Nair",   role: "worker", city: "Chennai",   kyc: "rejected", trust: "bronze", categories: ["electrical"] },
+  {
+    phone: "+919876500011",
+    name: "Ravi Kumar",
+    role: "worker",
+    city: "Mumbai",
+    kyc: "verified",
+    trust: "gold",
+    categories: ["masonry", "plumbing"],
+  },
+  {
+    phone: "+919876500012",
+    name: "Suresh Patel",
+    role: "worker",
+    city: "Pune",
+    kyc: "verified",
+    trust: "silver",
+    categories: ["electrical"],
+  },
+  {
+    phone: "+919876500013",
+    name: "Manoj Yadav",
+    role: "worker",
+    city: "Bengaluru",
+    kyc: "verified",
+    trust: "bronze",
+    categories: ["painting", "carpentry"],
+  },
+  {
+    phone: "+919876500014",
+    name: "Deepak Singh",
+    role: "worker",
+    city: "Hyderabad",
+    kyc: "pending",
+    trust: "bronze",
+    categories: ["plumbing"],
+  },
+  {
+    phone: "+919876500015",
+    name: "Arjun Nair",
+    role: "worker",
+    city: "Chennai",
+    kyc: "rejected",
+    trust: "bronze",
+    categories: ["electrical"],
+  },
   // Admin
   { phone: "+919876500099", name: "Demo Admin", role: "admin", city: "Mumbai" },
 ];
@@ -196,12 +259,12 @@ async function seed() {
     console.log(`${icon}  ${r.phone}  ${r.name.padEnd(16)}  ${r.status}  (${r.id.slice(0, 8)}…)`);
   }
 
-  const priya  = uid["+919876500001"]!;
-  const rohit  = uid["+919876500002"]!;
+  const priya = uid["+919876500001"]!;
+  const rohit = uid["+919876500002"]!;
   const anjali = uid["+919876500003"]!;
-  const ravi   = uid["+919876500011"]!;
+  const ravi = uid["+919876500011"]!;
   const suresh = uid["+919876500012"]!;
-  const manoj  = uid["+919876500013"]!;
+  const manoj = uid["+919876500013"]!;
   const deepak = uid["+919876500014"]!;
 
   // --- 2. Jobs + milestones + ledger + misc --------------------------------
@@ -269,30 +332,75 @@ async function seed() {
 
   // ── JOB 1: 2BHK kitchen renovation (Priya → Ravi) ───────────────────────
   const job1 = await upsertJob({
-    client_id: priya, worker_id: ravi,
+    client_id: priya,
+    worker_id: ravi,
     title: "2BHK kitchen renovation",
-    description: "Full kitchen renovation including demolition, plumbing, cabinets, countertop, and fixtures.",
+    description:
+      "Full kitchen renovation including demolition, plumbing, cabinets, countertop, and fixtures.",
     category: "masonry",
     location_text: "Bandra West, Mumbai",
     total_budget: 180000,
     status: "assigned",
     accepted_at: new Date(Date.now() - 10 * 86400_000).toISOString(),
   });
-  const j1m1 = await upsertMilestone(job1, 1, { title: "Demo & rough plumbing", amount: 40000, status: "released", approved_at: new Date(Date.now() - 7 * 86400_000).toISOString() });
-  const j1m2 = await upsertMilestone(job1, 2, { title: "Cabinet install", amount: 60000, status: "funded", auto_release_at: new Date(Date.now() + 48 * 3600_000).toISOString() });
-  await upsertMilestone(job1, 3, { title: "Countertop & backsplash", amount: 50000, status: "pending" });
-  await upsertMilestone(job1, 4, { title: "Final fixtures & cleanup", amount: 30000, status: "pending" });
+  const j1m1 = await upsertMilestone(job1, 1, {
+    title: "Demo & rough plumbing",
+    amount: 40000,
+    status: "released",
+    approved_at: new Date(Date.now() - 7 * 86400_000).toISOString(),
+  });
+  const j1m2 = await upsertMilestone(job1, 2, {
+    title: "Cabinet install",
+    amount: 60000,
+    status: "funded",
+    auto_release_at: new Date(Date.now() + 48 * 3600_000).toISOString(),
+  });
+  await upsertMilestone(job1, 3, {
+    title: "Countertop & backsplash",
+    amount: 50000,
+    status: "pending",
+  });
+  await upsertMilestone(job1, 4, {
+    title: "Final fixtures & cleanup",
+    amount: 30000,
+    status: "pending",
+  });
 
   // Ledger for job1:
   // M1: fund (priya→priya ₹40k) + release (priya→ravi ₹40k)
-  await upsertLedger({ job_id: job1, milestone_id: j1m1, from_wallet: priya, to_wallet: priya, amount: 40000, type: "fund",    reference_id: j1m1 });
-  await upsertLedger({ job_id: job1, milestone_id: j1m1, from_wallet: priya, to_wallet: ravi,  amount: 40000, type: "release", reference_id: j1m1 });
+  await upsertLedger({
+    job_id: job1,
+    milestone_id: j1m1,
+    from_wallet: priya,
+    to_wallet: priya,
+    amount: 40000,
+    type: "fund",
+    reference_id: j1m1,
+  });
+  await upsertLedger({
+    job_id: job1,
+    milestone_id: j1m1,
+    from_wallet: priya,
+    to_wallet: ravi,
+    amount: 40000,
+    type: "release",
+    reference_id: j1m1,
+  });
   // M2: fund (priya locked ₹60k)
-  await upsertLedger({ job_id: job1, milestone_id: j1m2, from_wallet: priya, to_wallet: priya, amount: 60000, type: "fund",    reference_id: j1m2 });
+  await upsertLedger({
+    job_id: job1,
+    milestone_id: j1m2,
+    from_wallet: priya,
+    to_wallet: priya,
+    amount: 60000,
+    type: "fund",
+    reference_id: j1m2,
+  });
 
   // ── JOB 2: Bathroom rewiring (Rohit → Suresh) ────────────────────────────
   const job2 = await upsertJob({
-    client_id: rohit, worker_id: suresh,
+    client_id: rohit,
+    worker_id: suresh,
     title: "Bathroom rewiring",
     description: "Complete rewiring of two bathrooms including safety check and fixture install.",
     category: "electrical",
@@ -301,11 +409,25 @@ async function seed() {
     status: "in_progress",
     accepted_at: new Date(Date.now() - 5 * 86400_000).toISOString(),
   });
-  const j2m1 = await upsertMilestone(job2, 1, { title: "Wiring + safety check", amount: 20000, status: "submitted", submitted_at: new Date(Date.now() - 1 * 86400_000).toISOString(), auto_release_at: new Date(Date.now() + 71 * 3600_000).toISOString() });
+  const j2m1 = await upsertMilestone(job2, 1, {
+    title: "Wiring + safety check",
+    amount: 20000,
+    status: "submitted",
+    submitted_at: new Date(Date.now() - 1 * 86400_000).toISOString(),
+    auto_release_at: new Date(Date.now() + 71 * 3600_000).toISOString(),
+  });
   await upsertMilestone(job2, 2, { title: "Fixture install", amount: 15000, status: "pending" });
 
   // Ledger for job2 M1: funded (rohit locked ₹20k)
-  await upsertLedger({ job_id: job2, milestone_id: j2m1, from_wallet: rohit, to_wallet: rohit, amount: 20000, type: "fund", reference_id: j2m1 });
+  await upsertLedger({
+    job_id: job2,
+    milestone_id: j2m1,
+    from_wallet: rohit,
+    to_wallet: rohit,
+    amount: 20000,
+    type: "fund",
+    reference_id: j2m1,
+  });
 
   // Proof for M1
   const { data: existingProof } = await supabase
@@ -326,7 +448,8 @@ async function seed() {
 
   // ── JOB 3: Office repaint (Anjali → Manoj, disputed) ─────────────────────
   const job3 = await upsertJob({
-    client_id: anjali, worker_id: manoj,
+    client_id: anjali,
+    worker_id: manoj,
     title: "Office repaint 1500 sqft",
     description: "Full office repaint — walls and ceiling. Premium washable paint specified.",
     category: "painting",
@@ -335,13 +458,50 @@ async function seed() {
     status: "disputed",
     accepted_at: new Date(Date.now() - 15 * 86400_000).toISOString(),
   });
-  const j3m1 = await upsertMilestone(job3, 1, { title: "Surface prep & primer", amount: 20000, status: "released", approved_at: new Date(Date.now() - 10 * 86400_000).toISOString() });
-  const j3m2 = await upsertMilestone(job3, 2, { title: "First coat", amount: 30000, status: "disputed" });
-  await upsertMilestone(job3, 3, { title: "Second coat & finishing", amount: 15000, status: "pending" });
+  const j3m1 = await upsertMilestone(job3, 1, {
+    title: "Surface prep & primer",
+    amount: 20000,
+    status: "released",
+    approved_at: new Date(Date.now() - 10 * 86400_000).toISOString(),
+  });
+  const j3m2 = await upsertMilestone(job3, 2, {
+    title: "First coat",
+    amount: 30000,
+    status: "disputed",
+  });
+  await upsertMilestone(job3, 3, {
+    title: "Second coat & finishing",
+    amount: 15000,
+    status: "pending",
+  });
 
-  await upsertLedger({ job_id: job3, milestone_id: j3m1, from_wallet: anjali, to_wallet: anjali, amount: 20000, type: "fund",    reference_id: j3m1 });
-  await upsertLedger({ job_id: job3, milestone_id: j3m1, from_wallet: anjali, to_wallet: manoj,  amount: 20000, type: "release", reference_id: j3m1 });
-  await upsertLedger({ job_id: job3, milestone_id: j3m2, from_wallet: anjali, to_wallet: anjali, amount: 30000, type: "fund",    reference_id: j3m2 });
+  await upsertLedger({
+    job_id: job3,
+    milestone_id: j3m1,
+    from_wallet: anjali,
+    to_wallet: anjali,
+    amount: 20000,
+    type: "fund",
+    reference_id: j3m1,
+  });
+  await upsertLedger({
+    job_id: job3,
+    milestone_id: j3m1,
+    from_wallet: anjali,
+    to_wallet: manoj,
+    amount: 20000,
+    type: "release",
+    reference_id: j3m1,
+  });
+  await upsertLedger({
+    job_id: job3,
+    milestone_id: j3m2,
+    from_wallet: anjali,
+    to_wallet: anjali,
+    amount: 30000,
+    type: "fund",
+    reference_id: j3m2,
+  });
 
   // Dispute for M2
   const { data: existingDispute } = await supabase
@@ -372,7 +532,7 @@ async function seed() {
     status: "open",
   });
   await upsertMilestone(job4, 1, { title: "Frame & assembly", amount: 15000, status: "pending" });
-  await upsertMilestone(job4, 2, { title: "Finishing & polish", amount: 7000,  status: "pending" });
+  await upsertMilestone(job4, 2, { title: "Finishing & polish", amount: 7000, status: "pending" });
 
   // ── JOB 5: Drainage repair (Priya, open, 2 applications) ─────────────────
   const job5 = await upsertJob({
@@ -384,12 +544,28 @@ async function seed() {
     total_budget: 15000,
     status: "open",
   });
-  await upsertMilestone(job5, 1, { title: "Diagnose & repair drainage", amount: 15000, status: "pending" });
+  await upsertMilestone(job5, 1, {
+    title: "Diagnose & repair drainage",
+    amount: 15000,
+    status: "pending",
+  });
 
   // Applications for job5
   for (const app of [
-    { worker_id: ravi,   bid_amount: 14000, eta_days: 3, message: "Can start immediately. Gold tier plumber.", status: "pending" },
-    { worker_id: deepak, bid_amount: 12000, eta_days: 5, message: "KYC pending but available.", status: "rejected" },
+    {
+      worker_id: ravi,
+      bid_amount: 14000,
+      eta_days: 3,
+      message: "Can start immediately. Gold tier plumber.",
+      status: "pending",
+    },
+    {
+      worker_id: deepak,
+      bid_amount: 12000,
+      eta_days: 5,
+      message: "KYC pending but available.",
+      status: "rejected",
+    },
   ]) {
     const { data: existingApp } = await supabase
       .from("job_applications")
@@ -398,14 +574,17 @@ async function seed() {
       .eq("worker_id", app.worker_id)
       .maybeSingle();
     if (!existingApp) {
-      const { error: appErr } = await supabase.from("job_applications").insert({ job_id: job5, ...app });
+      const { error: appErr } = await supabase
+        .from("job_applications")
+        .insert({ job_id: job5, ...app });
       if (appErr) bail(`job_applications insert job5 worker=${app.worker_id}`, appErr);
     }
   }
 
   // ── JOB 6: Full bathroom remodel (Rohit → Ravi, completed) ───────────────
   const job6 = await upsertJob({
-    client_id: rohit, worker_id: ravi,
+    client_id: rohit,
+    worker_id: ravi,
     title: "Full bathroom remodel",
     description: "Complete gut-and-remodel of master bathroom. Tiling, plumbing, fixtures.",
     category: "plumbing",
@@ -414,13 +593,48 @@ async function seed() {
     status: "completed",
     accepted_at: new Date(Date.now() - 45 * 86400_000).toISOString(),
   });
-  const j6m1 = await upsertMilestone(job6, 1, { title: "Demo & waterproofing", amount: 30000, status: "released", approved_at: new Date(Date.now() - 35 * 86400_000).toISOString() });
-  const j6m2 = await upsertMilestone(job6, 2, { title: "Tiling & plumbing rough-in", amount: 45000, status: "released", approved_at: new Date(Date.now() - 20 * 86400_000).toISOString() });
-  const j6m3 = await upsertMilestone(job6, 3, { title: "Fixtures & final cleanup", amount: 20000, status: "released", approved_at: new Date(Date.now() - 10 * 86400_000).toISOString() });
+  const j6m1 = await upsertMilestone(job6, 1, {
+    title: "Demo & waterproofing",
+    amount: 30000,
+    status: "released",
+    approved_at: new Date(Date.now() - 35 * 86400_000).toISOString(),
+  });
+  const j6m2 = await upsertMilestone(job6, 2, {
+    title: "Tiling & plumbing rough-in",
+    amount: 45000,
+    status: "released",
+    approved_at: new Date(Date.now() - 20 * 86400_000).toISOString(),
+  });
+  const j6m3 = await upsertMilestone(job6, 3, {
+    title: "Fixtures & final cleanup",
+    amount: 20000,
+    status: "released",
+    approved_at: new Date(Date.now() - 10 * 86400_000).toISOString(),
+  });
 
-  for (const [mid, amt] of [[j6m1, 30000], [j6m2, 45000], [j6m3, 20000]] as [string, number][]) {
-    await upsertLedger({ job_id: job6, milestone_id: mid, from_wallet: rohit, to_wallet: rohit, amount: amt, type: "fund",    reference_id: mid });
-    await upsertLedger({ job_id: job6, milestone_id: mid, from_wallet: rohit, to_wallet: ravi,  amount: amt, type: "release", reference_id: mid });
+  for (const [mid, amt] of [
+    [j6m1, 30000],
+    [j6m2, 45000],
+    [j6m3, 20000],
+  ] as [string, number][]) {
+    await upsertLedger({
+      job_id: job6,
+      milestone_id: mid,
+      from_wallet: rohit,
+      to_wallet: rohit,
+      amount: amt,
+      type: "fund",
+      reference_id: mid,
+    });
+    await upsertLedger({
+      job_id: job6,
+      milestone_id: mid,
+      from_wallet: rohit,
+      to_wallet: ravi,
+      amount: amt,
+      type: "release",
+      reference_id: mid,
+    });
   }
 
   // Also top-up Ravi's wallet for the released funds (job1 M1 + job6 all = 40k + 95k = 135k)
@@ -453,17 +667,19 @@ async function seed() {
   // For release entries: money moves out of locked (from_wallet), into available (to_wallet)
   // Net system balance = sum(release) - sum(fund) per wallet should be 0 in a closed system
   // Simplified check: total fund amounts == total release amounts (no refunds in seed)
-  let totalFund = 0, totalRelease = 0, totalRefund = 0;
+  let totalFund = 0,
+    totalRelease = 0,
+    totalRefund = 0;
   for (const row of ledgerRows ?? []) {
-    if (row.type === "fund")    totalFund    += Number(row.amount);
+    if (row.type === "fund") totalFund += Number(row.amount);
     if (row.type === "release") totalRelease += Number(row.amount);
-    if (row.type === "refund")  totalRefund  += Number(row.amount);
+    if (row.type === "refund") totalRefund += Number(row.amount);
   }
   console.log(`   Total funded  : ${fmt(totalFund)}`);
   console.log(`   Total released: ${fmt(totalRelease)}`);
   console.log(`   Total refunded: ${fmt(totalRefund)}`);
 
-  const locked   = totalFund - totalRelease - totalRefund;
+  const locked = totalFund - totalRelease - totalRefund;
   const ledgerOk = locked >= 0;
   console.log(`   In-escrow lock: ${fmt(locked)}  ${ledgerOk ? "✅ balanced" : "❌ MISMATCH"}`);
   if (!ledgerOk) {

@@ -19,7 +19,10 @@ import {
 const STEPS = ["Name", "Aadhaar", "PAN", "Selfie", "Skills"] as const;
 
 function Step0() {
-  const { register, formState: { errors } } = useFormContext<WorkerOnboardingInput>();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext<WorkerOnboardingInput>();
   return (
     <div className="space-y-2">
       <Label htmlFor="fullName">Full Name</Label>
@@ -32,7 +35,10 @@ function Step0() {
 }
 
 function Step1() {
-  const { register, formState: { errors } } = useFormContext<WorkerOnboardingInput>();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext<WorkerOnboardingInput>();
   return (
     <div className="space-y-3">
       <div className="space-y-2">
@@ -66,7 +72,10 @@ function Step1() {
 }
 
 function Step2() {
-  const { register, formState: { errors } } = useFormContext<WorkerOnboardingInput>();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext<WorkerOnboardingInput>();
   return (
     <div className="space-y-3">
       <div className="space-y-2">
@@ -78,12 +87,7 @@ function Step2() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="panLast4">PAN Last 4</Label>
-        <Input
-          id="panLast4"
-          maxLength={4}
-          placeholder="1234F"
-          {...register("panLast4")}
-        />
+        <Input id="panLast4" maxLength={4} placeholder="1234F" {...register("panLast4")} />
         {errors.panLast4 ? (
           <p className="text-xs text-destructive">{errors.panLast4.message as string}</p>
         ) : null}
@@ -93,9 +97,13 @@ function Step2() {
 }
 
 function Step3() {
-  const { setValue, watch, formState: { errors } } = useFormContext<WorkerOnboardingInput>();
+  const {
+    setValue,
+    watch,
+    formState: { errors },
+  } = useFormContext<WorkerOnboardingInput>();
   const selfieFile = watch("selfie") as File | undefined;
-  
+
   const previewUrl = useMemo(() => {
     if (selfieFile instanceof File) {
       return URL.createObjectURL(selfieFile);
@@ -126,7 +134,7 @@ function Step3() {
           <p className="text-xs text-destructive">{errors.selfie.message as string}</p>
         ) : null}
       </div>
-      
+
       {previewUrl && (
         <div className="rounded-lg border overflow-hidden w-32 h-32 relative bg-black">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -138,9 +146,13 @@ function Step3() {
 }
 
 function Step4() {
-  const { watch, setValue, formState: { errors } } = useFormContext<WorkerOnboardingInput>();
+  const {
+    watch,
+    setValue,
+    formState: { errors },
+  } = useFormContext<WorkerOnboardingInput>();
   const [skillInput, setSkillInput] = useState("");
-  
+
   const selectedCategories = watch("categories") ?? [];
   const skillTags = watch("skillTags") ?? [];
 
@@ -197,9 +209,8 @@ function Step4() {
               <button
                 key={category}
                 type="button"
-                className={`rounded-md border px-3 py-2 text-left text-xs capitalize ${
-                  active ? "border-primary bg-primary/10 text-primary" : ""
-                }`}
+                className={`rounded-md border px-3 py-2 text-left text-xs capitalize ${active ? "border-primary bg-primary/10 text-primary" : ""
+                  }`}
                 onClick={() => toggleCategory(category)}
               >
                 {category.replace("-", " ")}
@@ -292,7 +303,7 @@ export function WorkerOnboardingForm() {
         }
 
         router.push(result.redirectTo ?? "/worker/kyc-pending");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         toast.error(err.message ?? "An unexpected error occurred");
       }
@@ -307,9 +318,8 @@ export function WorkerOnboardingForm() {
           {STEPS.map((step, index) => (
             <div
               key={step}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${
-                index <= currentStep ? "bg-primary" : "bg-muted"
-              }`}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${index <= currentStep ? "bg-primary" : "bg-muted"
+                }`}
               aria-hidden="true"
             />
           ))}
@@ -322,11 +332,11 @@ export function WorkerOnboardingForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={currentStep === 0 ? "block" : "hidden"}><Step0 /></div>
-            <div className={currentStep === 1 ? "block" : "hidden"}><Step1 /></div>
-            <div className={currentStep === 2 ? "block" : "hidden"}><Step2 /></div>
-            <div className={currentStep === 3 ? "block" : "hidden"}><Step3 /></div>
-            <div className={currentStep === 4 ? "block" : "hidden"}><Step4 /></div>
+            {currentStep === 0 && <Step0 />}
+            {currentStep === 1 && <Step1 />}
+            {currentStep === 2 && <Step2 />}
+            {currentStep === 3 && <Step3 />}
+            {currentStep === 4 && <Step4 />}
           </CardContent>
         </Card>
 
@@ -335,8 +345,9 @@ export function WorkerOnboardingForm() {
             <p className="font-semibold">Cannot submit — please fix:</p>
             <ul className="list-disc pl-5">
               {Object.entries(form.formState.errors).map(([k, v]) => (
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                <li key={k}>{k}: {(v as any)?.message ?? "invalid"}</li>
+                <li key={k}>
+                  {k}: {(v as { message?: string } | undefined)?.message ?? "invalid"}
+                </li>
               ))}
             </ul>
           </div>
@@ -344,12 +355,7 @@ export function WorkerOnboardingForm() {
 
         {/* Navigation buttons */}
         <div className="grid grid-cols-2 gap-3 pb-6">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!canGoBack}
-            onClick={prevStep}
-          >
+          <Button type="button" variant="outline" disabled={!canGoBack} onClick={prevStep}>
             Back
           </Button>
           {canGoNext ? (

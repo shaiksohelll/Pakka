@@ -36,7 +36,11 @@ export function ClientJobList() {
   const [activeFilter, setActiveFilter] = useState<JobStatus | "all">("all");
   const { user } = useUser();
 
-  const { data: jobs, isLoading, error } = useQuery({
+  const {
+    data: jobs,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["client-jobs", user?.id],
     staleTime: 10_000,
     enabled: !!user?.id,
@@ -45,11 +49,13 @@ export function ClientJobList() {
 
       const { data, error } = await supabase
         .from("jobs")
-        .select(`
+        .select(
+          `
           id, title, category, status, total_budget, created_at,
-          milestones(id),
-          job_applications(id)
-        `)
+          milestones_count:milestones(count),
+          applications_count:job_applications(count)
+        `,
+        )
         .eq("client_id", user!.id)
         .order("created_at", { ascending: false });
 
@@ -62,15 +68,15 @@ export function ClientJobList() {
         status: j.status as JobStatus,
         total_budget: Number(j.total_budget),
         created_at: j.created_at,
-        milestone_count: (j.milestones as unknown[]).length,
-        application_count: (j.job_applications as unknown[]).length,
+        // Supabase returns count aggregates as [{count: N}]
+        milestone_count: (j.milestones_count as unknown as { count: number }[])[0]?.count ?? 0,
+        application_count: (j.applications_count as unknown as { count: number }[])[0]?.count ?? 0,
       })) satisfies Job[];
     },
   });
 
-  const filtered = activeFilter === "all"
-    ? (jobs ?? [])
-    : (jobs ?? []).filter((j) => j.status === activeFilter);
+  const filtered =
+    activeFilter === "all" ? (jobs ?? []) : (jobs ?? []).filter((j) => j.status === activeFilter);
 
   if (isLoading) return <ClientJobListSkeleton />;
   if (error) {
@@ -123,15 +129,15 @@ export function ClientJobList() {
                     {job.title}
                   </p>
                   <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span className="font-medium text-primary">
-                      {formatInr(job.total_budget)}
+                    <span className="font-medium text-primary">{formatInr(job.total_budget)}</span>
+                    <span>
+                      {job.milestone_count} milestone{job.milestone_count !== 1 ? "s" : ""}
                     </span>
-                    <span>{job.milestone_count} milestone{job.milestone_count !== 1 ? "s" : ""}</span>
-                    <span>{job.application_count} application{job.application_count !== 1 ? "s" : ""}</span>
+                    <span>
+                      {job.application_count} application{job.application_count !== 1 ? "s" : ""}
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {relativeTime(job.created_at)}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{relativeTime(job.created_at)}</p>
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
               </Link>

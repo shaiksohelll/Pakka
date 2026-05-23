@@ -36,10 +36,10 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("Auto-release error:", error.message);
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const releasedCount = data as number;
@@ -55,9 +55,9 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("Auto-release unexpected error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });

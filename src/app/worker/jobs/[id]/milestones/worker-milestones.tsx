@@ -1,17 +1,12 @@
 "use client";
 
+import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Send,
-  CheckCircle2,
-  Clock,
-  Shield,
-  Lock,
-  Loader2,
-} from "lucide-react";
+import { Send, CheckCircle2, Clock, Shield, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
 import { submitMilestoneAction } from "@/app/_actions/escrow";
@@ -50,28 +45,25 @@ type WalletInfo = {
 };
 
 // ── Fetcher ────────────────────────────────────────────────────────────────────────
-async function fetchWorkerMilestones(jobId: string) {
+async function fetchWorkerMilestones(jobId: string, userId: string) {
   const supabase = createClient();
 
   const [jobRes, msRes, walletRes] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select("id,title,total_budget,status,worker_id")
-      .eq("id", jobId)
-      .single(),
+    supabase.from("jobs").select("id,title,total_budget,status,worker_id").eq("id", jobId).single(),
     supabase
       .from("milestones")
-      .select("id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at")
+      .select(
+        "id,sequence,title,description,amount,status,auto_release_at,submitted_at,approved_at",
+      )
       .eq("job_id", jobId)
       .order("sequence"),
-    supabase
-      .from("wallets")
-      .select("available_balance,locked_balance")
-      .limit(1)
-      .single(),
+    supabase.from("wallets").select("available_balance,locked_balance").eq("profile_id", userId).single(),
   ]);
 
   if (jobRes.error) throw jobRes.error;
+  if (msRes.error) throw msRes.error;
+  // PGRST116 = "no rows" → expected when wallet hasn't been created yet; fall through to zero-balance default.
+  if (walletRes.error && walletRes.error.code !== "PGRST116") throw walletRes.error;
 
   return {
     job: {
@@ -98,12 +90,16 @@ export function WorkerMilestones({
   workerKyc: "pending" | "verified" | "rejected";
 }) {
   const { id: jobId } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const { user } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
 
   // Synchronous gate (catches double-clicks before React re-renders) +
   // per-milestone in-flight state (so only the clicked button spins).
   const inFlightRef = useRef<Set<string>>(new Set());
+  // Per-intent idempotency key map. Key rotates only on success so retries
+  // re-use the same UUID (forward-compatible with server-side RPC idempotency).
+  const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
 
   // Mounted flag: used to skip setState in handleSubmit's finally block if
@@ -118,9 +114,10 @@ export function WorkerMilestones({
   }, []);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["worker-milestones", jobId],
+    queryKey: ["worker-milestones", jobId, user?.id],
     staleTime: 10_000,
-    queryFn: () => fetchWorkerMilestones(jobId),
+    enabled: !!user?.id,
+    queryFn: () => fetchWorkerMilestones(jobId, user!.id),
   });
 
   // ── Realtime ─────────────────────────────────────────────────────────────────
@@ -130,42 +127,81 @@ export function WorkerMilestones({
     const supabase = createClient();
     const channel = supabase
       .channel(`worker-milestones-${jobId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'milestones',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'escrow_ledger',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'wallets',
-        filter: `profile_id=eq.${userId}`,
-      }, (payload) => {
-        console.log('[worker-milestones-realtime] event:',
-          payload.table, payload.eventType);
-        queryClient.invalidateQueries({
-          queryKey: ['worker-milestones', jobId],
-        });
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "milestones",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "escrow_ledger",
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "wallets",
+          filter: `profile_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("[worker-milestones-realtime] event:", payload.table, payload.eventType);
+          queryClient.invalidateQueries({
+            queryKey: ["worker-milestones", jobId],
+          });
+        },
+      )
       .subscribe((status, err) => {
-        console.log('[worker-milestones-realtime]', status, err ?? '');
+        console.log("[worker-milestones-realtime]", status, err ?? "");
       });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, jobId, queryClient]);
+
+  // ── Auth redirect ─────────────────────────────────────────────────────────
+  // Redirect is scheduled in useEffect, not during render, to avoid the
+  // React render-phase side-effect anti-pattern (Rules of Hooks).
+  useEffect(() => {
+    if (!isAuthLoading && !user?.id) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, user, router]);
+
+  // ── Idempotency key helpers ──────────────────────────────────────────────
+  function getOrCreateIdempotencyKey(milestoneId: string): string {
+    const existing = idempotencyKeysRef.current.get(milestoneId);
+    if (existing) return existing;
+    const fresh = generateUuid();
+    idempotencyKeysRef.current.set(milestoneId, fresh);
+    return fresh;
+  }
+
+  function clearIdempotencyKey(milestoneId: string): void {
+    idempotencyKeysRef.current.delete(milestoneId);
+  }
 
   // ── Submit handler ─────────────────────────────────────────────────────────────────
   async function handleSubmit(milestoneId: string) {
@@ -179,12 +215,13 @@ export function WorkerMilestones({
     try {
       const result = await submitMilestoneAction({
         milestone_id: milestoneId,
-        idempotency_key: crypto.randomUUID(),
+        idempotency_key: getOrCreateIdempotencyKey(milestoneId),
       });
 
       if (!result.success) {
         toast.error(result.error);
       } else {
+        clearIdempotencyKey(milestoneId);
         toast.success("Milestone submitted for review!");
       }
       queryClient.invalidateQueries({
@@ -193,11 +230,10 @@ export function WorkerMilestones({
     } catch (err) {
       // Thrown errors (network, server crash). Return-shape errors are
       // handled in the `if (!result.success)` branch above.
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Submission failed. Please try again.";
-      toast.error(message);
+      // TODO: Sentry.captureException(err)
+      // Log the raw error for debugging; show a fixed user-safe message.
+      console.error("[worker-milestones:submit] unexpected", err);
+      toast.error("Submission failed. Please try again.");
       queryClient.invalidateQueries({
         queryKey: ["worker-milestones", jobId],
       });
@@ -211,6 +247,7 @@ export function WorkerMilestones({
     }
   }
 
+  if (isAuthLoading || !user?.id) return <WorkerMilestonesSkeleton />;
   if (isLoading) return <WorkerMilestonesSkeleton />;
   if (error || !data) {
     return (
@@ -241,9 +278,7 @@ export function WorkerMilestones({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Earned (this job)
           </p>
-          <p className="text-lg font-bold text-primary">
-            {formatInr(totalEarned)}
-          </p>
+          <p className="text-lg font-bold text-primary">{formatInr(totalEarned)}</p>
         </div>
       </section>
 
@@ -251,9 +286,7 @@ export function WorkerMilestones({
 
       {/* ── Milestone cards ── */}
       <section className="space-y-3">
-        <h2 className="text-base font-semibold">
-          Milestones ({milestones.length})
-        </h2>
+        <h2 className="text-base font-semibold">Milestones ({milestones.length})</h2>
 
         {milestones.map((m) => {
           const isInFlight = inFlight.has(m.id);
@@ -275,9 +308,7 @@ export function WorkerMilestones({
                     {m.sequence}. {m.title}
                   </p>
                   {m.description && (
-                    <p className="text-xs text-muted-foreground">
-                      {m.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{m.description}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -303,17 +334,15 @@ export function WorkerMilestones({
                 <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
                   <Clock className="h-3.5 w-3.5 shrink-0" />
                   <span>
-                    Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}.
-                    Auto-releases if client takes no action.
+                    Submitted {m.submitted_at ? relativeTime(m.submitted_at) : ""}. Auto-releases if
+                    client takes no action.
                   </span>
                 </div>
               )}
               {m.status === "disputed" && (
                 <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
                   <Shield className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Disputed by client. Under review. Funds remain locked.
-                  </span>
+                  <span>Disputed by client. Under review. Funds remain locked.</span>
                 </div>
               )}
               {(m.status === "approved" || m.status === "released") && (

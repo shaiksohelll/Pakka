@@ -6,10 +6,10 @@ import { Search, FileText, Wallet, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { label: "Browse", href: "/worker/feed",         Icon: Search   },
+  { label: "Browse", href: "/worker/feed", Icon: Search },
   { label: "My Jobs", href: "/worker/applications", Icon: FileText },
-  { label: "Wallet",  href: "/worker/wallet",       Icon: Wallet   },
-  { label: "Account", href: "/worker/account",      Icon: User     },
+  { label: "Wallet", href: "/worker/wallet", Icon: Wallet },
+  { label: "Account", href: "/worker/account", Icon: User },
 ] as const;
 
 export function WorkerNavShell({ children }: { children: React.ReactNode }) {
@@ -53,9 +53,7 @@ export function WorkerNavShell({ children }: { children: React.ReactNode }) {
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                     "hover:opacity-80",
                     "motion-reduce:transition-none",
-                    active
-                      ? "text-emerald-500"
-                      : "text-neutral-500",
+                    active ? "text-emerald-500" : "text-neutral-500",
                   )}
                   aria-current={active ? "page" : undefined}
                 >

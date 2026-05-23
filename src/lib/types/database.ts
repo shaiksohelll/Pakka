@@ -82,7 +82,14 @@ export type Database = {
           lat: number | null;
           lng: number | null;
           total_budget: number;
-          status: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          status:
+            | "draft"
+            | "open"
+            | "assigned"
+            | "in_progress"
+            | "completed"
+            | "cancelled"
+            | "disputed";
           created_at: string;
           accepted_at: string | null;
         };
@@ -97,7 +104,14 @@ export type Database = {
           lat?: number | null;
           lng?: number | null;
           total_budget: number;
-          status?: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          status?:
+            | "draft"
+            | "open"
+            | "assigned"
+            | "in_progress"
+            | "completed"
+            | "cancelled"
+            | "disputed";
           created_at?: string;
           accepted_at?: string | null;
         };
@@ -112,7 +126,14 @@ export type Database = {
           lat?: number | null;
           lng?: number | null;
           total_budget?: number;
-          status?: "draft" | "open" | "assigned" | "in_progress" | "completed" | "cancelled" | "disputed";
+          status?:
+            | "draft"
+            | "open"
+            | "assigned"
+            | "in_progress"
+            | "completed"
+            | "cancelled"
+            | "disputed";
           created_at?: string;
           accepted_at?: string | null;
         };
@@ -125,7 +146,14 @@ export type Database = {
           title: string;
           description: string | null;
           amount: number;
-          status: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          status:
+            | "pending"
+            | "funded"
+            | "submitted"
+            | "approved"
+            | "disputed"
+            | "released"
+            | "refunded";
           auto_release_at: string | null;
           submitted_at: string | null;
           approved_at: string | null;
@@ -138,7 +166,14 @@ export type Database = {
           title: string;
           description?: string | null;
           amount: number;
-          status?: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          status?:
+            | "pending"
+            | "funded"
+            | "submitted"
+            | "approved"
+            | "disputed"
+            | "released"
+            | "refunded";
           auto_release_at?: string | null;
           submitted_at?: string | null;
           approved_at?: string | null;
@@ -151,7 +186,14 @@ export type Database = {
           title?: string;
           description?: string | null;
           amount?: number;
-          status?: "pending" | "funded" | "submitted" | "approved" | "disputed" | "released" | "refunded";
+          status?:
+            | "pending"
+            | "funded"
+            | "submitted"
+            | "approved"
+            | "disputed"
+            | "released"
+            | "refunded";
           auto_release_at?: string | null;
           submitted_at?: string | null;
           approved_at?: string | null;
@@ -488,16 +530,10 @@ export type Database = {
         | "refunded";
       ledger_type: "fund" | "release" | "refund" | "topup" | "withdraw";
       proof_type: "photo" | "video";
-      dispute_status:
-        | "open"
-        | "mediating"
-        | "resolved_client"
-        | "resolved_worker"
-        | "split";
+      dispute_status: "open" | "mediating" | "resolved_client" | "resolved_worker" | "split";
       material_status: "requested" | "paid" | "delivered";
       application_status: "pending" | "shortlisted" | "accepted" | "rejected" | "withdrawn";
     };
     CompositeTypes: Record<string, never>;
   };
 };
-

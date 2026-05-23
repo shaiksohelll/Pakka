@@ -37,8 +37,7 @@ export function createClient(): SupabaseClient {
   // cookie-based flows sometimes race — this explicit listener guarantees
   // the Realtime transport stays in sync with the auth state.
   _client.auth.onAuthStateChange((event, session) => {
-    console.log("[supabase-client] auth-event", event,
-      session ? "session-present" : "no-session");
+    console.log("[supabase-client] auth-event", event, session ? "session-present" : "no-session");
     if (session?.access_token) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (_client as any).realtime.setAuth(session.access_token);

@@ -107,13 +107,7 @@ export async function completeWorkerOnboardingAction(
   };
 
   const selfie = formData.get("selfie");
-  
-  console.log("kyc-action invoked", { 
-    name: payload.fullName, 
-    hasSelfie: !!selfie, 
-    categories: payload.categories, 
-    skillTags: payload.skillTags 
-  });
+
 
   const parsed = workerOnboardingSchema.safeParse(payload);
   if (!parsed.success) {
@@ -131,10 +125,12 @@ export async function completeWorkerOnboardingAction(
 
   const selfiePath = `${userId}/selfie-${Date.now()}.jpg`;
   const selfieBuffer = await selfie.arrayBuffer();
-  const { error: uploadError } = await supabase.storage.from("kyc").upload(selfiePath, selfieBuffer, {
-    contentType: selfie.type || "image/jpeg",
-    upsert: false,
-  });
+  const { error: uploadError } = await supabase.storage
+    .from("kyc")
+    .upload(selfiePath, selfieBuffer, {
+      contentType: selfie.type || "image/jpeg",
+      upsert: false,
+    });
 
   if (uploadError) {
     return { success: false, error: uploadError.message };
@@ -150,6 +146,15 @@ export async function completeWorkerOnboardingAction(
   );
 
   if (profileError) {
+    // Clean up orphaned selfie if downstream DB write failed.
+    const { error: cleanupError } = await supabase.storage.from("kyc").remove([selfiePath]);
+    if (cleanupError) {
+      console.error("[onboarding.completeWorker] Selfie cleanup failed after profileError", {
+        cleanupError,
+        selfiePath,
+      });
+      // TODO: Sentry.captureException(cleanupError)
+    }
     return { success: false, error: profileError.message };
   }
 
@@ -167,6 +172,15 @@ export async function completeWorkerOnboardingAction(
   );
 
   if (workerError) {
+    // Clean up orphaned selfie if downstream DB write failed.
+    const { error: cleanupError } = await supabase.storage.from("kyc").remove([selfiePath]);
+    if (cleanupError) {
+      console.error("[onboarding.completeWorker] Selfie cleanup failed after workerError", {
+        cleanupError,
+        selfiePath,
+      });
+      // TODO: Sentry.captureException(cleanupError)
+    }
     return { success: false, error: workerError.message };
   }
 
