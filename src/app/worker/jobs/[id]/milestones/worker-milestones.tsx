@@ -95,8 +95,8 @@ export function WorkerMilestones({
   // Synchronous gate (catches double-clicks before React re-renders) +
   // per-milestone in-flight state (so only the clicked button spins).
   const inFlightRef = useRef<Set<string>>(new Set());
-  // Per-intent idempotency key map. Key rotates only on success so that
-  // network-error retries send the same UUID and the server can deduplicate.
+  // Per-intent idempotency key map. Key rotates only on success so retries
+  // re-use the same UUID (forward-compatible with server-side RPC idempotency).
   const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const [inFlight, setInFlight] = useState<Set<string>>(new Set());
 

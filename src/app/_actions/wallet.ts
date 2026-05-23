@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { PostgrestError } from "@supabase/supabase-js";
 import {
   topupWalletSchema,
   type TopupWalletInput,
@@ -35,7 +36,7 @@ async function getAuthUserId() {
  */
 function mapWalletRpcError(
   action: "topup" | "withdraw",
-  error: { code: string; message: string },
+  error: PostgrestError,
 ): string | null {
   // 42501 — insufficient privilege / auth-related
   if (error.code === "42501") {

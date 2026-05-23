@@ -119,8 +119,8 @@ export function ClientMilestones() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const inFlightRef = useRef<Set<string>>(new Set());
-  // Per-intent idempotency key map. Key rotates only on success so that
-  // network-error retries send the same UUID and the server can deduplicate.
+  // Per-intent idempotency key map. Key rotates only on success so retries
+  // re-use the same UUID (forward-compatible with server-side RPC idempotency).
   const idempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
   useEffect(() => {
