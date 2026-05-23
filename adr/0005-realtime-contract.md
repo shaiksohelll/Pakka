@@ -3,7 +3,7 @@ Status: Proposed
 Context:
 
 - The UI must reflect changes in escrow state in real-time for both clients and workers.
-  Decision:
+Decision:
 - Define the channel boundaries, data privacy constraints, and RPC wrappers that surface updates via Supabase Realtime with proper token binding.
-  Consequences:
+Consequences:
 - Improves user experience while ensuring data access remains scoped via RLS and SECURITY DEFINER RPCs.
