@@ -54,15 +54,33 @@ begin
 
   -- INSERT ledger first; per-sender UNIQUE index serializes concurrent duplicate-key
   -- calls at the INSERT itself. Race-losers get unique_violation → replay path.
-  -- If A commits → B catches unique_violation → replays A's result.
-  -- If A rolls back (insufficient_balance) → B's INSERT proceeds → B runs its own balance check.
-  insert into public.escrow_ledger (
-    job_id, milestone_id, from_wallet, to_wallet, amount, type, reference_id
-  )
-  values (
-    null, null, v_profile_id, null, p_amount, 'withdraw', p_idempotency_key
-  )
-  returning id into v_ledger_id;
+  -- Nested block scopes the handler to ONLY this INSERT so that any future
+  -- UNIQUE violation elsewhere in the function is not misclassified as a replay.
+  begin
+    insert into public.escrow_ledger (
+      job_id, milestone_id, from_wallet, to_wallet, amount, type, reference_id
+    )
+    values (
+      null, null, v_profile_id, null, p_amount, 'withdraw', p_idempotency_key
+    )
+    returning id into v_ledger_id;
+  exception
+    when unique_violation then
+      -- Race-loser replay: the winning concurrent call already inserted the ledger row
+      -- and debited the wallet. Re-read the winning ledger id, scoped to the calling wallet.
+      select el.id into v_ledger_id
+      from public.escrow_ledger el
+      where el.reference_id = p_idempotency_key
+        and el.type = 'withdraw'
+        and el.from_wallet = v_profile_id
+      limit 1;
+      -- Return the current post-debit balance.
+      select w.available_balance into v_available
+      from public.wallets w
+      where w.profile_id = v_profile_id;
+      return query select v_available, v_ledger_id;
+      return;
+  end;
 
   -- Lock wallet row for atomic debit (now that we own the ledger slot).
   select w.available_balance into v_available
@@ -85,22 +103,6 @@ begin
   returning w.available_balance into v_available;
 
   return query select v_available, v_ledger_id;
-
-exception
-  when unique_violation then
-    -- Race-loser replay: the winning concurrent call already inserted the ledger row
-    -- and debited the wallet. Re-read the winning ledger id, scoped to the calling wallet.
-    select el.id into v_ledger_id
-    from public.escrow_ledger el
-    where el.reference_id = p_idempotency_key
-      and el.type = 'withdraw'
-      and el.from_wallet = v_profile_id
-    limit 1;
-    -- Return the current post-debit balance.
-    select w.available_balance into v_available
-    from public.wallets w
-    where w.profile_id = v_profile_id;
-    return query select v_available, v_ledger_id;
 end;
 $$;
 

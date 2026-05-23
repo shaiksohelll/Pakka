@@ -41,7 +41,14 @@ export default function WorkerAccountPage() {
     setError(null);
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
+    if (authError) {
+      // TODO: Sentry.captureException(authError)
+      setError("Couldn't verify your session. Please try again.");
+      setLoading(false);
+      return;
+    }
     if (!user) {
       setLoading(false);
       router.replace("/login");

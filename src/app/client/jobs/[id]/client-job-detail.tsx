@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { useParams } from "next/navigation";
@@ -151,6 +152,7 @@ async function fetchJobDetail(jobId: string) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export function ClientJobDetail() {
   const { id: jobId } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const { user, isLoading: isAuthLoading } = useUser();
@@ -258,7 +260,12 @@ export function ClientJobDetail() {
   }
 
   // Auth still hydrating — show skeleton, not error.
-  if (isAuthLoading || !user?.id) return <ClientJobDetailSkeleton />;
+  if (isAuthLoading) return <ClientJobDetailSkeleton />;
+  // Not authenticated (middleware will redirect; this guards the brief boundary).
+  if (!user?.id) {
+    router.replace("/login");
+    return null;
+  }
   if (isLoading) return <ClientJobDetailSkeleton />;
   if (error || !data) {
     return (

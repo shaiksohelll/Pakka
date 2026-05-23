@@ -2,6 +2,7 @@
 
 import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -89,6 +90,7 @@ export function WorkerMilestones({
   workerKyc: "pending" | "verified" | "rejected";
 }) {
   const { id: jobId } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useUser();
 
@@ -236,7 +238,11 @@ export function WorkerMilestones({
     }
   }
 
-  if (isAuthLoading || !user?.id) return <WorkerMilestonesSkeleton />;
+  if (isAuthLoading) return <WorkerMilestonesSkeleton />;
+  if (!user?.id) {
+    router.replace("/login");
+    return null;
+  }
   if (isLoading) return <WorkerMilestonesSkeleton />;
   if (error || !data) {
     return (

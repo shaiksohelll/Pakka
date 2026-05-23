@@ -2,6 +2,7 @@
 
 import { generateUuid } from "@/lib/uuid";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -116,6 +117,7 @@ async function fetchMilestonesData(jobId: string, userId: string) {
 // ── Main component ────────────────────────────────────────────────────────────
 export function ClientMilestones() {
   const { id: jobId } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   const inFlightRef = useRef<Set<string>>(new Set());
@@ -316,7 +318,10 @@ export function ClientMilestones() {
   // Auth still hydrating — show skeleton, not error.
   if (isAuthLoading) return <MilestonesSkeleton />;
   // Not authenticated (middleware will redirect; this guards the brief boundary).
-  if (!user?.id) return <MilestonesSkeleton />;
+  if (!user?.id) {
+    router.replace("/login");
+    return null;
+  }
   if (isLoading) return <MilestonesSkeleton />;
   if (error || !data) {
     return (
