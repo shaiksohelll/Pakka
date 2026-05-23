@@ -259,14 +259,18 @@ export function ClientJobDetail() {
     });
   }
 
-  // Auth still hydrating — show skeleton, not error.
-  if (isAuthLoading) return <ClientJobDetailSkeleton />;
-  // Not authenticated (middleware will redirect; this guards the brief boundary).
-  if (!user?.id) {
-    router.replace("/login");
-    return null;
-  }
+  // ── Auth redirect ─────────────────────────────────────────────────────────
+  // Redirect is scheduled in useEffect, not during render, to avoid the
+  // React render-phase side-effect anti-pattern (Rules of Hooks).
+  useEffect(() => {
+    if (!isAuthLoading && !user?.id) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, user, router]);
+  // Auth still hydrating or redirect in flight — show skeleton.
+  if (isAuthLoading || !user?.id) return <ClientJobDetailSkeleton />;
   if (isLoading) return <ClientJobDetailSkeleton />;
+
   if (error || !data) {
     return (
       <div className="rounded-xl border bg-destructive/5 p-6 text-center text-destructive">

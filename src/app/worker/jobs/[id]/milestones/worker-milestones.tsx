@@ -181,6 +181,15 @@ export function WorkerMilestones({
     };
   }, [user?.id, jobId, queryClient]);
 
+  // ── Auth redirect ─────────────────────────────────────────────────────────
+  // Redirect is scheduled in useEffect, not during render, to avoid the
+  // React render-phase side-effect anti-pattern (Rules of Hooks).
+  useEffect(() => {
+    if (!isAuthLoading && !user?.id) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, user, router]);
+
   // ── Idempotency key helpers ──────────────────────────────────────────────
   function getOrCreateIdempotencyKey(milestoneId: string): string {
     const existing = idempotencyKeysRef.current.get(milestoneId);
@@ -238,11 +247,7 @@ export function WorkerMilestones({
     }
   }
 
-  if (isAuthLoading) return <WorkerMilestonesSkeleton />;
-  if (!user?.id) {
-    router.replace("/login");
-    return null;
-  }
+  if (isAuthLoading || !user?.id) return <WorkerMilestonesSkeleton />;
   if (isLoading) return <WorkerMilestonesSkeleton />;
   if (error || !data) {
     return (

@@ -204,6 +204,15 @@ export function ClientMilestones() {
     };
   }, [user?.id, jobId, queryClient]);
 
+  // ── Auth redirect ─────────────────────────────────────────────────────────
+  // Redirect is scheduled in useEffect, not during render, to avoid the
+  // React render-phase side-effect anti-pattern (Rules of Hooks).
+  useEffect(() => {
+    if (!isAuthLoading && !user?.id) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, user, router]);
+
   // ── Idempotency key helpers ──────────────────────────────────────────────
   // Reuses an existing key for the same (action, milestoneId) pair so that
   // a retry after a network drop sends the same UUID the server already saw.
@@ -316,12 +325,7 @@ export function ClientMilestones() {
   }
 
   // Auth still hydrating — show skeleton, not error.
-  if (isAuthLoading) return <MilestonesSkeleton />;
-  // Not authenticated (middleware will redirect; this guards the brief boundary).
-  if (!user?.id) {
-    router.replace("/login");
-    return null;
-  }
+  if (isAuthLoading || !user?.id) return <MilestonesSkeleton />;
   if (isLoading) return <MilestonesSkeleton />;
   if (error || !data) {
     return (

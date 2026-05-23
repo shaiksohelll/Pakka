@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,10 @@ export default function WorkerAccountPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestIdRef = useRef(0);
+
   async function load() {
+    const myRequestId = ++requestIdRef.current;
     const supabase = createClient();
     setLoading(true);
     setError(null);
@@ -43,6 +46,7 @@ export default function WorkerAccountPage() {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
+    if (myRequestId !== requestIdRef.current) return;
     if (authError) {
       // TODO: Sentry.captureException(authError)
       setError("Couldn't verify your session. Please try again.");
@@ -50,6 +54,8 @@ export default function WorkerAccountPage() {
       return;
     }
     if (!user) {
+      setProfile(null);
+      setWorker(null);
       setLoading(false);
       router.replace("/login");
       return;
@@ -66,6 +72,7 @@ export default function WorkerAccountPage() {
         .eq("profile_id", user.id)
         .maybeSingle(),
     ]);
+    if (myRequestId !== requestIdRef.current) return;
     if (pErr) {
       setError(pErr.message);
       setLoading(false);
