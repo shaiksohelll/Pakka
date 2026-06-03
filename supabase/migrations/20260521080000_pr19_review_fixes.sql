@@ -177,89 +177,93 @@ begin
     order by m.auto_release_at
     for update of m skip locked
   loop
-    -- Lock wallets in consistent order to avoid deadlocks.
-    perform 1
-    from public.wallets w
-    where w.profile_id in (v_milestone.client_id, v_milestone.worker_id)
-    order by w.profile_id
-    for update;
-
-    if exists (
-      select 1
+    begin
+      -- Lock wallets in consistent order to avoid deadlocks.
+      perform 1
       from public.wallets w
-      where w.profile_id = v_milestone.client_id
-        and w.locked_balance >= v_milestone.amount
-    ) then
-      update public.wallets
-      set locked_balance = locked_balance - v_milestone.amount
-      where profile_id = v_milestone.client_id;
-
-      update public.wallets
-      set available_balance = available_balance + v_milestone.amount
-      where profile_id = v_milestone.worker_id;
-
-      update public.milestones
-      set status = 'released'::public.milestone_status,
-          approved_at = now()
-      where id = v_milestone.id;
-
-      insert into public.escrow_ledger (
-        job_id, milestone_id, from_wallet, to_wallet, amount, type, reference_id
-      ) values (
-        v_milestone.job_id,
-        v_milestone.id,
-        v_milestone.client_id,
-        v_milestone.worker_id,
-        v_milestone.amount,
-        'release'::public.ledger_type,
-        v_milestone.id
-      )
-      on conflict (from_wallet, reference_id) where type = 'release' do nothing;
-
-      if not exists (
+      where w.profile_id in (v_milestone.client_id, v_milestone.worker_id)
+      order by w.profile_id
+      for update;
+  
+      if exists (
         select 1
-        from public.milestones m2
-        where m2.job_id = v_milestone.job_id
-          and m2.status not in ('released', 'refunded')
+        from public.wallets w
+        where w.profile_id = v_milestone.client_id
+          and w.locked_balance >= v_milestone.amount
       ) then
-        update public.jobs
-        set status = 'completed'::public.job_status
-        where id = v_milestone.job_id;
+        update public.wallets
+        set locked_balance = locked_balance - v_milestone.amount
+        where profile_id = v_milestone.client_id;
+  
+        update public.wallets
+        set available_balance = available_balance + v_milestone.amount
+        where profile_id = v_milestone.worker_id;
+  
+        update public.milestones
+        set status = 'released'::public.milestone_status,
+            approved_at = now()
+        where id = v_milestone.id;
+  
+        insert into public.escrow_ledger (
+          job_id, milestone_id, from_wallet, to_wallet, amount, type, reference_id
+        ) values (
+          v_milestone.job_id,
+          v_milestone.id,
+          v_milestone.client_id,
+          v_milestone.worker_id,
+          v_milestone.amount,
+          'release'::public.ledger_type,
+          v_milestone.id
+        );
+  
+        if not exists (
+          select 1
+          from public.milestones m2
+          where m2.job_id = v_milestone.job_id
+            and m2.status not in ('released', 'refunded')
+        ) then
+          update public.jobs
+          set status = 'completed'::public.job_status
+          where id = v_milestone.job_id;
+        end if;
+  
+        insert into public.notifications (recipient_id, type, title, body, data)
+        values (
+          v_milestone.worker_id,
+          'milestone_auto_released',
+          'Milestone Auto-Released',
+          'Your milestone payment has been automatically released.',
+          jsonb_build_object(
+            'job_id', v_milestone.job_id,
+            'milestone_id', v_milestone.id,
+            'amount', v_milestone.amount
+          )
+        );
+  
+        insert into public.notifications (recipient_id, type, title, body, data)
+        values (
+          v_milestone.client_id,
+          'milestone_auto_released',
+          'Milestone Auto-Released',
+          'A milestone payment was automatically released after 72 hours.',
+          jsonb_build_object(
+            'job_id', v_milestone.job_id,
+            'milestone_id', v_milestone.id,
+            'amount', v_milestone.amount
+          )
+        );
+  
+        v_count := v_count + 1;
+      else
+        -- Visibility: log skips so persistent under-funded milestones are diagnosable
+        -- via Postgres logs. A future PR can persist these to a dedicated table.
+        raise notice 'auto_release_milestones: skipping milestone % (job %): insufficient locked balance for amount %',
+          v_milestone.id, v_milestone.job_id, v_milestone.amount;
       end if;
-
-      insert into public.notifications (recipient_id, type, title, body, data)
-      values (
-        v_milestone.worker_id,
-        'milestone_auto_released',
-        'Milestone Auto-Released',
-        'Your milestone payment has been automatically released.',
-        jsonb_build_object(
-          'job_id', v_milestone.job_id,
-          'milestone_id', v_milestone.id,
-          'amount', v_milestone.amount
-        )
-      );
-
-      insert into public.notifications (recipient_id, type, title, body, data)
-      values (
-        v_milestone.client_id,
-        'milestone_auto_released',
-        'Milestone Auto-Released',
-        'A milestone payment was automatically released after 72 hours.',
-        jsonb_build_object(
-          'job_id', v_milestone.job_id,
-          'milestone_id', v_milestone.id,
-          'amount', v_milestone.amount
-        )
-      );
-
-      v_count := v_count + 1;
-    else
-      -- Visibility: log skips so persistent under-funded milestones are diagnosable
-      -- via Postgres logs. A future PR can persist these to a dedicated table.
-      raise notice 'auto_release_milestones: skipping milestone % (job %): insufficient locked balance for amount %',
-        v_milestone.id, v_milestone.job_id, v_milestone.amount;
-    end if;
+    exception when unique_violation then
+      raise warning 'auto_release: duplicate release blocked for milestone %', v_milestone.id;
+      -- subtransaction rolls back THIS milestone's wallet mutation; loop continues
+    end;
   end loop;
 
   return v_count;

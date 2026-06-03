@@ -79,6 +79,7 @@ declare
   v_amount numeric(14, 2);
   v_status public.milestone_status;
   v_ledger_id uuid;
+  v_existing_milestone_id uuid;
 begin
   -- Reject NULL idempotency keys (NULLs bypass the UNIQUE index)
   if p_idempotency_key is null then
@@ -100,14 +101,20 @@ begin
     raise exception 'Only job client or admin can fund escrow';
   end if;
 
-  -- Idempotency: if a ledger row with this key already exists, return it.
-  select el.id into v_ledger_id
+  -- Idempotency: if a ledger row with this key already exists, return it,
+  -- provided it's for the same milestone.
+  select el.id, el.milestone_id into v_ledger_id, v_existing_milestone_id
   from public.escrow_ledger el
   where el.reference_id = p_idempotency_key
     and el.type = 'fund'
     and el.to_wallet = v_client_id;
+  
   if found then
-    return v_ledger_id;
+    if v_existing_milestone_id = p_milestone_id then
+      return v_ledger_id;
+    else
+      raise exception 'invalid_idempotency_key' using errcode = '22023';
+    end if;
   end if;
 
   if v_status <> 'pending'::public.milestone_status then
@@ -138,6 +145,9 @@ begin
       auto_release_at = coalesce(auto_release_at, now() + interval '72 hours')
   where id = p_milestone_id;
 
+  -- fund_escrow mutates the wallet before this INSERT; the unique index is a fail-safe — 
+  -- a duplicate must roll back the whole txn (undoing the balance change), not be swallowed. 
+  -- Concurrency is serialized by milestone FOR UPDATE + the pending-only status guard.
   insert into public.escrow_ledger (
     job_id,
     milestone_id,
@@ -165,7 +175,7 @@ $$;
 -- ── submit_milestone ─────────────────────────────────────────────────────────
 create or replace function public.submit_milestone(
   p_milestone_id uuid,
-  p_idempotency_key uuid
+  p_idempotency_key uuid -- validated for API-signature consistency; NOT the dedup anchor (status guard / milestone_id drive idempotency)
 )
 returns uuid
 language plpgsql
@@ -232,7 +242,7 @@ $$;
 -- ── approve_milestone ────────────────────────────────────────────────────────
 create or replace function public.approve_milestone(
   p_milestone_id uuid,
-  p_idempotency_key uuid
+  p_idempotency_key uuid -- validated for API-signature consistency; NOT the dedup anchor (status guard / milestone_id drive idempotency)
 )
 returns uuid
 language plpgsql
@@ -318,6 +328,10 @@ begin
       approved_at = now()
   where id = p_milestone_id;
 
+  -- Hard unique constraint is the fail-safe: money is mutated before this INSERT, 
+  -- so a duplicate MUST roll back the whole txn (undoing the release), not be swallowed. 
+  -- Concurrency is serialized by FOR UPDATE + the funded/submitted status guard, 
+  -- making a conflict unreachable in correct execution.
   insert into public.escrow_ledger (
     job_id,
     milestone_id,
@@ -336,18 +350,7 @@ begin
     'release'::public.ledger_type,
     p_milestone_id
   )
-  on conflict (from_wallet, reference_id) where type = 'release' do nothing
   returning id into v_ledger_id;
-
-  -- If ON CONFLICT suppressed the INSERT (concurrent auto_release won the
-  -- race), v_ledger_id is NULL. Re-read the winner's row.
-  if v_ledger_id is null then
-    select el.id into v_ledger_id
-    from public.escrow_ledger el
-    where el.reference_id = p_milestone_id
-      and el.type = 'release'
-      and el.from_wallet = v_client_id;
-  end if;
 
   if not exists (
     select 1
