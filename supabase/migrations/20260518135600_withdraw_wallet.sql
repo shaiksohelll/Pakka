@@ -3,6 +3,9 @@
 -- Mirrors topup_wallet: look-then-leap idempotency, wallet-update-then-ledger.
 -- Bounds: 100 <= amount <= wallet.available_balance.
 -- Adds per-user UNIQUE index from day one (lesson from topup hardening 20260518002100).
+--
+-- ⚠ Superseded by 20260521080000_pr19_review_fixes.sql (final version).
+-- This migration still runs for schema history; the later CREATE OR REPLACE wins.
 
 create or replace function public.withdraw_wallet(
   p_amount numeric,

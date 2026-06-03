@@ -2,6 +2,9 @@
 -- The function declares RETURNS TABLE (available_balance numeric, ledger_id uuid),
 -- which creates an implicit OUT variable that shadows wallets.available_balance.
 -- All wallets/escrow_ledger references in the body are now table-aliased.
+--
+-- ⚠ Superseded by 20260521080000_pr19_review_fixes.sql (final version).
+-- This migration still runs for schema history; the later CREATE OR REPLACE wins.
 
 create or replace function public.withdraw_wallet(
   p_amount numeric,

@@ -213,7 +213,8 @@ begin
         v_milestone.amount,
         'release'::public.ledger_type,
         v_milestone.id
-      );
+      )
+      on conflict (from_wallet, reference_id) where type = 'release' do nothing;
 
       if not exists (
         select 1

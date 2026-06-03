@@ -271,10 +271,14 @@ begin
     raise exception 'Only job client or admin can approve milestone';
   end if;
 
-  -- Idempotency: if a release ledger row with this key already exists, return it.
+  -- Idempotency: keyed on (from_wallet, milestone_id) via the partial UNIQUE
+  -- index idx_escrow_ledger_release_owner_reference. Uses p_milestone_id (not
+  -- the user-supplied idempotency key) so both approve_milestone and
+  -- auto_release_milestones share one key per milestone → at most one release
+  -- ledger row can ever exist.
   select el.id into v_ledger_id
   from public.escrow_ledger el
-  where el.reference_id = p_idempotency_key
+  where el.reference_id = p_milestone_id
     and el.type = 'release'
     and el.from_wallet = v_client_id;
   if found then
@@ -330,9 +334,20 @@ begin
     v_worker_id,
     v_amount,
     'release'::public.ledger_type,
-    p_idempotency_key
+    p_milestone_id
   )
+  on conflict (from_wallet, reference_id) where type = 'release' do nothing
   returning id into v_ledger_id;
+
+  -- If ON CONFLICT suppressed the INSERT (concurrent auto_release won the
+  -- race), v_ledger_id is NULL. Re-read the winner's row.
+  if v_ledger_id is null then
+    select el.id into v_ledger_id
+    from public.escrow_ledger el
+    where el.reference_id = p_milestone_id
+      and el.type = 'release'
+      and el.from_wallet = v_client_id;
+  end if;
 
   if not exists (
     select 1
@@ -446,3 +461,7 @@ grant execute on function public.approve_milestone(uuid, uuid) to authenticated;
 
 revoke all on function public.dispute_milestone(uuid, text, uuid) from public, anon;
 grant execute on function public.dispute_milestone(uuid, text, uuid) to authenticated;
+
+-- N5: auto_release_milestones is only called by pg_cron (as postgres).
+-- Revoke from everyone else as defence-in-depth.
+revoke execute on function public.auto_release_milestones() from anon, public, authenticated;

@@ -75,6 +75,8 @@ function mapEscrowRpcError(
   // ── Shared messages across multiple functions ────────────────────────────
   if (msg === "Milestone not found") return "Milestone not found.";
   if (msg === "Job has no assigned worker") return "No worker is assigned to this job yet.";
+  if (msg === "invalid_idempotency_key")
+    return "Request signature missing. Please refresh and try again.";
 
   // ── fund_escrow ──────────────────────────────────────────────────────────
   if (action === "fund") {
