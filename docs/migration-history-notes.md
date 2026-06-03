@@ -21,7 +21,7 @@ To safely re-sync the history without breaking the functional dev schema, we exe
 
 ### Deviation from ADR-0004
 - **Context:** ADR-0004 mandates forward-only, immutable migrations applied via `apply_migration`. This reconciliation deviated from that and is scoped strictly as a ONE-TIME, dev/staging-ONLY recovery.
-- **What changed:** ONLY the `supabase_migrations.schema_migrations` tracking table (via `migration repair`). No migration files edited, no schema objects altered, no SQL re-run, production never touched.
+- **What changed:** ONLY the `supabase_migrations.schema_migrations` tracking table was updated by the recovery steps (via `migration repair`). No migration files were edited, and no SQL was re-run *during the tracking recovery* (though the incident itself involved a `db push`), and production was never touched.
 - **Why it was necessary:** An earlier `migration repair --status reverted` wiped tracking rows for migrations whose schema effects were already live, leaving `db push` unable to proceed. Repairing tracking to reflect reality was the minimal fix.
 - **Precedent:** ADR-0004 remains fully in force for all future migrations. This runbook is explicitly NOT a precedent for rewriting PRODUCTION migration history.
 
