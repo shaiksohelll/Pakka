@@ -35,6 +35,17 @@ describe("mapEscrowRpcError", () => {
       expect(mapEscrowRpcError("withdraw", err)).toBe("Not enough balance in your wallet.");
     });
 
+    it("handles dispute-specific tokens", () => {
+      expect(mapEscrowRpcError("dispute", mockError("22023", "pakka:reason_required: ..."))).toBe("A reason is required to raise a dispute.");
+      expect(mapEscrowRpcError("dispute", mockError("P0001", "pakka:cannot_dispute_settled: ..."))).toBe("This milestone has already been settled and cannot be disputed.");
+    });
+
+    it("handles wallet-specific tokens", () => {
+      expect(mapEscrowRpcError("topup", mockError("42501", "pakka:not_authenticated: ..."))).toBe("You need to be signed in.");
+      expect(mapEscrowRpcError("topup", mockError("42501", "pakka:forbidden_role: ..."))).toBe("You don't have permission for this operation.");
+      expect(mapEscrowRpcError("withdraw", mockError("P0002", "pakka:wallet_not_found: ..."))).toBe("Wallet not found. Please contact support.");
+    });
+
     it("handles complex strings with parens/% in the suffix", () => {
       const err = mockError("P0001", "pakka:invalid_status_transition: Milestone must be funded to submit (current: pending)");
       expect(mapEscrowRpcError("submit", err)).toBe("This milestone must be funded before it can be submitted.");

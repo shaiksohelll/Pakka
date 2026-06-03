@@ -14,6 +14,7 @@ set search_path = public
 as $$
 declare
   v_job_id uuid;
+    v_rows integer;
   v_client_id uuid;
   v_amount numeric(14, 2);
   v_status public.milestone_status;
@@ -78,6 +79,10 @@ begin
   set available_balance = available_balance - v_amount,
       locked_balance = locked_balance + v_amount
   where profile_id = v_client_id;
+  get diagnostics v_rows = row_count;
+  if v_rows <> 1 then
+    raise exception 'pakka:wallet_not_found: Wallet not found' using errcode = 'P0002';
+  end if;
 
   update public.milestones
   set status = 'funded'::public.milestone_status,
@@ -122,6 +127,7 @@ set search_path = public
 as $$
 declare
   v_job_id uuid;
+    v_rows integer;
   v_worker_id uuid;
   v_status public.milestone_status;
 begin
@@ -188,6 +194,7 @@ set search_path = public
 as $$
 declare
   v_job_id uuid;
+    v_rows integer;
   v_client_id uuid;
   v_worker_id uuid;
   v_amount numeric(14, 2);
@@ -255,10 +262,18 @@ begin
   update public.wallets
   set locked_balance = locked_balance - v_amount
   where profile_id = v_client_id;
+  get diagnostics v_rows = row_count;
+  if v_rows <> 1 then
+    raise exception 'pakka:wallet_not_found: Wallet not found' using errcode = 'P0002';
+  end if;
 
   update public.wallets
   set available_balance = available_balance + v_amount
   where profile_id = v_worker_id;
+  get diagnostics v_rows = row_count;
+  if v_rows <> 1 then
+    raise exception 'pakka:wallet_not_found: Wallet not found' using errcode = 'P0002';
+  end if;
 
   update public.milestones
   set status = 'released'::public.milestone_status,
@@ -316,12 +331,17 @@ set search_path = public
 as $$
 declare
   v_job_id uuid;
+    v_rows integer;
   v_client_id uuid;
   v_worker_id uuid;
   v_status public.milestone_status;
   v_dispute_id uuid;
 begin
-  -- Reject NULL idempotency keys (enforces client contract)
+  
+  if auth.uid() is null then
+    raise exception 'pakka:not_authenticated: Not authenticated' using errcode = '42501';
+  end if;
+-- Reject NULL idempotency keys (enforces client contract)
   if p_idempotency_key is null then
     raise exception 'pakka:invalid_idempotency_key: Request signature missing' using errcode = '22023';
   end if;
@@ -396,6 +416,7 @@ set search_path to 'public'
 as $$
 declare
   v_profile_id uuid := auth.uid();
+  v_rows       integer;
   v_ledger_id  uuid;
   v_available  numeric;
 begin
@@ -471,6 +492,10 @@ begin
   set available_balance = w.available_balance - p_amount
   where w.profile_id = v_profile_id
   returning w.available_balance into v_available;
+  get diagnostics v_rows = row_count;
+  if v_rows <> 1 then
+    raise exception 'pakka:wallet_not_found: Wallet not found' using errcode = 'P0002';
+  end if;
 
   return query select v_available, v_ledger_id;
 end;
@@ -487,6 +512,7 @@ set search_path = public
 as $$
 declare
   v_profile_id uuid := auth.uid();
+  v_rows       integer;
   v_ledger_id  uuid;
   v_available  numeric;
 begin
@@ -550,6 +576,10 @@ begin
     set available_balance = available_balance + p_amount
     where profile_id = v_profile_id
     returning available_balance into v_available;
+  get diagnostics v_rows = row_count;
+  if v_rows <> 1 then
+    raise exception 'pakka:wallet_not_found: Wallet not found' using errcode = 'P0002';
+  end if;
 
   return query select v_available, v_ledger_id;
 end;
@@ -564,4 +594,8 @@ grant execute on function public.approve_milestone(uuid, uuid) to authenticated;
 revoke all on function public.dispute_milestone(uuid, text, uuid) from public, anon;
 grant execute on function public.dispute_milestone(uuid, text, uuid) to authenticated;
 revoke execute on function public.withdraw_wallet(numeric, uuid) from anon, public;
+grant execute on function public.withdraw_wallet(numeric, uuid) to authenticated;
 revoke execute on function public.topup_wallet(numeric, uuid) from anon, public;
+grant execute on function public.topup_wallet(numeric, uuid) to authenticated;
+
+

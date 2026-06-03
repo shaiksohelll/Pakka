@@ -30,43 +30,8 @@ async function getAuthUserId() {
   return { supabase, userId: user.id };
 }
 
-/**
- * Map a Postgres RPC error from the escrow state-machine functions into a
- * user-friendly string. Routes primarily by the exact exception message from
- * RAISE EXCEPTION (error.message), with a small number of prefix matches via
- * startsWith for parameterised messages (e.g. "Milestone must be funded to
- * submit (current: ...)"). Returns null when the error is unrecognised;
- * callers log the raw error and fall back to the action-specific generic
- * message.
- *
- * Error inventory (from 202604260004_create_escrow_functions.sql and
- * 202604260005_harden_state_machine.sql):
- *
- * fund_escrow:
- *   'Milestone not found'               → shared
- *   'Only job client or admin can fund escrow'
- *   'Milestone must be in pending state'
- *   'Insufficient available balance'
- *
- * submit_milestone:
- *   'Milestone not found'               → shared
- *   'Job has no assigned worker'        → shared
- *   'Only assigned worker or admin can submit milestone'
- *   'Milestone must be funded to submit (current: %)'  (startsWith match)
- *
- * approve_milestone:
- *   'Milestone not found'               → shared
- *   'Job has no assigned worker'        → shared
- *   'Only job client or admin can approve milestone'
- *   'Milestone must be funded or submitted'
- *   'Insufficient locked balance'
- *
- * dispute_milestone:
- *   'Reason is required'
- *   'Milestone not found'               → shared
- *   'Only job participants or admin can raise dispute'
- *   'Cannot dispute released/refunded milestone'
- */
+
+
 
 
 // ── Fund Milestone ────────────────────────────────────────────────────────────

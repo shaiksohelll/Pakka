@@ -96,11 +96,13 @@ export function mapEscrowRpcError(
   if (error.code === "42501") {
     if (msg === "not_authenticated") return "You need to be signed in.";
     if (msg === "forbidden_role") return action === "withdraw" ? "Withdrawals are restricted to worker accounts." : "You don't have permission for this operation.";
+    return "You don't have permission for this operation.";
   }
   if (error.code === "22023") {
     if (msg === "invalid_amount") return action === "topup" ? "Amount must be between ₹100 and ₹1,00,000." : "Amount must be between ₹100 and ₹5,00,000.";
     if (msg === "insufficient_balance") return "Not enough balance in your wallet.";
     if (msg === "wallet_not_found") return "Wallet not found. Please contact support.";
+    return "Invalid input. Please check the amount and try again.";
   }
 
   return null;
