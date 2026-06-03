@@ -17,7 +17,8 @@
 --     insufficient locked balance (visibility into silent skips)
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. withdraw_wallet — full rewrite with all fixes
+-- 1. Rewrite `withdraw_wallet`
+-- See adr/0008-withdraw-wallet-rpc.md for architecture decisions regarding concurrency, idempotency, and disambiguation.
 create or replace function public.withdraw_wallet(
   p_amount numeric,
   p_idempotency_key uuid

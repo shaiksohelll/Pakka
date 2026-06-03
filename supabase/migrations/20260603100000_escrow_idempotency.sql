@@ -97,7 +97,7 @@ begin
     raise exception 'Milestone not found';
   end if;
 
-  if auth.uid() <> v_client_id and not public.is_admin() then
+  if auth.uid() is distinct from v_client_id and not public.is_admin() then
     raise exception 'Only job client or admin can fund escrow';
   end if;
 
@@ -210,7 +210,7 @@ begin
     raise exception 'Job has no assigned worker';
   end if;
 
-  if auth.uid() <> v_worker_id and not public.is_admin() then
+  if auth.uid() is distinct from v_worker_id and not public.is_admin() then
     raise exception 'Only assigned worker or admin can submit milestone';
   end if;
 
@@ -277,7 +277,7 @@ begin
     raise exception 'Job has no assigned worker';
   end if;
 
-  if auth.uid() <> v_client_id and not public.is_admin() then
+  if auth.uid() is distinct from v_client_id and not public.is_admin() then
     raise exception 'Only job client or admin can approve milestone';
   end if;
 
@@ -405,8 +405,8 @@ begin
     raise exception 'Milestone not found';
   end if;
 
-  if auth.uid() not in (v_client_id, v_worker_id) and not public.is_admin() then
-    raise exception 'Only job participants or admin can raise dispute';
+  if auth.uid() is distinct from v_client_id and auth.uid() is distinct from v_worker_id and not public.is_admin() then
+    raise exception 'Only job participants or admin can raise dispute' using errcode = '42501';
   end if;
 
   if v_status in ('released', 'refunded') then
