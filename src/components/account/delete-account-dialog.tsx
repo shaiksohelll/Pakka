@@ -66,7 +66,7 @@ export function DeleteAccountDialog() {
     setLoading(true);
     try {
       const { error } = await supabase.rpc("request_account_deletion", {
-        reason: reason || null,
+        reason: reason || "",
       });
       if (!mountedRef.current) return;
       if (error) {

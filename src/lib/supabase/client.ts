@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/types/database";
 
 // ── Singleton browser client ──────────────────────────────────────────────────
 // A single instance is required so that auth token changes propagate to ALL
@@ -7,15 +8,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // always attaches the user's JWT (not the anon key) before connecting, which
 // fixes the silent event-drop bug for RLS-protected tables (milestones,
 // escrow_ledger, wallets).
-let _client: SupabaseClient | null = null;
+let _client: SupabaseClient<Database> | null = null;
 
-export function createClient(): SupabaseClient {
+export function createClient(): SupabaseClient<Database> {
   if (_client) return _client;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  _client = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  _client = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 
   // Eagerly prime the Realtime transport with the persisted session JWT so that
   // channels created in useEffect callbacks don't start with the anon key.

@@ -12,7 +12,8 @@
     "seed": "tsx --env-file=.env.local scripts/seed-demo-users.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gen:types": "npx supabase gen types typescript --project-id hibfpvmxynoonzxxdllu > src/lib/types/database.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

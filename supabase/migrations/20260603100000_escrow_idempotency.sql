@@ -27,29 +27,22 @@ create unique index if not exists idx_escrow_ledger_release_owner_reference
   where type = 'release';
 
 -- At most one open dispute per milestone.
--- Pre-index cleanup: if old dispute_milestone inserted duplicates, keep the
--- earliest open dispute per milestone and close the rest so the UNIQUE index
--- can be created without errors.
-do $$
-begin
-  update public.disputes
-     set status = 'resolved_worker'::public.dispute_status,
-         resolution_notes = 'Closed by migration: duplicate open dispute',
-         resolved_at = now()
-   where id in (
-     select d.id
-       from public.disputes d
-      inner join (
-        select milestone_id, min(created_at) as min_created
-          from public.disputes
-         where status = 'open'
-         group by milestone_id
-        having count(*) > 1
-      ) dups on d.milestone_id = dups.milestone_id
-                and d.status = 'open'
-                and d.created_at > dups.min_created
-   );
-end $$;
+-- Pre-index cleanup: if old dispute_milestone inserted duplicates, keep exactly
+-- one open dispute per milestone (earliest by created_at, tie-break by id) and
+-- DELETE the rest. Using row_number() handles identical-timestamp ties that the
+-- previous min(created_at) approach missed. No FK children reference disputes,
+-- so a plain DELETE is safe.
+delete from public.disputes
+where id in (
+  select id from (
+    select id, row_number() over (
+      partition by milestone_id order by created_at, id
+    ) as rn
+    from public.disputes
+    where status = 'open'
+  ) ranked
+  where ranked.rn > 1
+);
 
 create unique index if not exists idx_disputes_milestone_open
   on public.disputes (milestone_id)
