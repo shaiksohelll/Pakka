@@ -42,3 +42,10 @@ diff.txt
 *.diff
 
 scratch/
+
+# Temporary json files
+/*.json
+!package*.json
+!tsconfig*.json
+!jsconfig.json
+
