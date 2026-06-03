@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { PostgrestError } from "@supabase/supabase-js";
+
 import {
   topupWalletSchema,
   type TopupWalletInput,
   withdrawWalletSchema,
   type WithdrawWalletInput,
 } from "@/lib/schemas/wallet";
-import type { ActionResult } from "./escrow";
+import { type ActionResult } from "./escrow";
+import { mapEscrowRpcError } from "@/lib/rpc-errors";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,47 +24,7 @@ async function getAuthUserId() {
   return { supabase, userId: user.id };
 }
 
-/**
- * Map a Postgres RPC error from topup_wallet / withdraw_wallet into a
- * user-friendly string. Routes by SQLSTATE first (error.code), then by the
- * exact exception token from RAISE EXCEPTION (error.message).
- *
- * Returns null when the error is unrecognised; callers should log raw +
- * fall back to a generic message.
- *
- * Replaces the previous error.message substring matching (PR #19 review,
- * CodeRabbit #1) with a deterministic SQLSTATE + exact-token dispatch.
- */
-function mapWalletRpcError(
-  action: "topup" | "withdraw",
-  error: PostgrestError,
-): string | null {
-  // 42501 — insufficient privilege / auth-related
-  if (error.code === "42501") {
-    if (error.message === "not_authenticated") return "You need to be signed in.";
-    if (error.message === "forbidden_role") {
-      return action === "withdraw"
-        ? "Withdrawals are restricted to worker accounts."
-        : "You don't have permission for this operation.";
-    }
-    return "You don't have permission for this operation.";
-  }
-  // 22023 — invalid parameter value
-  if (error.code === "22023") {
-    if (error.message === "invalid_amount") {
-      return action === "topup"
-        ? "Amount must be between ₹100 and ₹1,00,000."
-        : "Amount must be between ₹100 and ₹5,00,000.";
-    }
-    if (error.message === "invalid_idempotency_key") {
-      return "Request signature missing. Please refresh and try again.";
-    }
-    if (error.message === "insufficient_balance") return "Not enough balance in your wallet.";
-    if (error.message === "wallet_not_found") return "Wallet not found. Please contact support.";
-    return "Invalid input. Please check the amount and try again.";
-  }
-  return null;
-}
+
 
 // ── Top up Wallet ─────────────────────────────────────────────────────────────
 // external → wallet: calls topup_wallet() SECURITY DEFINER function (test mode)
@@ -86,7 +47,7 @@ export async function topupWalletAction(
     });
 
     if (error) {
-      const friendly = mapWalletRpcError("topup", error);
+      const friendly = mapEscrowRpcError("topup", error);
       if (friendly) return { success: false, error: friendly };
       console.error("[wallet.topupWalletAction] Unmapped RPC error", {
         code: error.code,
@@ -158,7 +119,7 @@ export async function withdrawWalletAction(
     });
 
     if (error) {
-      const friendly = mapWalletRpcError("withdraw", error);
+      const friendly = mapEscrowRpcError("withdraw", error);
       if (friendly) return { success: false, error: friendly };
       console.error("[wallet.withdrawWalletAction] Unmapped RPC error", {
         code: error.code,
