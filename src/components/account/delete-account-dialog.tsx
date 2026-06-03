@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,13 @@ import {
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
+const deleteAccountSchema = z.object({
+  confirm: z.literal("DELETE", {
+    errorMap: () => ({ message: 'Type "DELETE" to confirm' }),
+  }),
+  reason: z.string().max(500).optional(),
+});
+
 export function DeleteAccountDialog() {
   const supabase = createClient();
   const router = useRouter();
@@ -25,36 +33,58 @@ export function DeleteAccountDialog() {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) {
       setConfirm("");
       setReason("");
       setLoading(false);
+      inFlightRef.current = false;
     }
   }, [open]);
 
   async function handleDelete() {
-    if (confirm !== "DELETE") {
-      toast.error('Type "DELETE" to confirm');
+    if (inFlightRef.current) return;
+
+    // Validate with Zod on client side
+    const parsed = deleteAccountSchema.safeParse({ confirm, reason: reason || undefined });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Type "DELETE" to confirm');
       return;
     }
+
+    inFlightRef.current = true;
     setLoading(true);
-    const { error } = await supabase.rpc("request_account_deletion", {
-      reason: reason || null,
-    });
-    if (error) {
-      setLoading(false);
-      toast.error("Could not submit deletion request: " + error.message);
-      return;
+    try {
+      const { error } = await supabase.rpc("request_account_deletion", {
+        reason: reason || "",
+      });
+      if (!mountedRef.current) return;
+      if (error) {
+        toast.error("Could not submit deletion request: " + error.message);
+        return;
+      }
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (!mountedRef.current) return;
+      if (signOutError) {
+        toast.error("Deletion requested, but sign-out failed: " + signOutError.message);
+        return;
+      }
+      toast.success("Account deletion requested. Our team will process it within 7 days.");
+      router.push("/login");
+    } finally {
+      inFlightRef.current = false;
+      if (mountedRef.current) setLoading(false);
     }
-    const { error: signOutError } = await supabase.auth.signOut();
-    setLoading(false);
-    if (signOutError) {
-      toast.error("Deletion requested, but sign-out failed: " + signOutError.message);
-      return;
-    }
-    toast.success("Account deletion requested. Our team will process it within 7 days.");
-    router.push("/login");
   }
 
   return (

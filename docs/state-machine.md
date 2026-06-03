@@ -5,7 +5,7 @@ Overview
 - The escrow flow is driven by two interconnected state machines:
 
 1.  jobs.status: the lifecycle of a job (open, assigned, in_progress, completed, cancelled, disputed).
-2.  milestones.status: per-milestone funding and delivery workflow (pending, funded, submitted, approved, disputed, released, refunded).
+2.  milestones.status: per-milestone funding and delivery workflow (pending, funded, submitted, disputed, released, refunded). Note: 'approved' exists in the enum for backward compatibility but is never set at runtime — see ADR-0006.
 
 - All transitions must occur through SECURITY DEFINER Postgres functions. No direct client mutation of statuses.
 
@@ -23,10 +23,10 @@ Milestones State Transitions
 - Effect: milestone.status = 'submitted'; submitted_at = now(); auto_release_at = now() + interval '72 hours'.
 - Caller: worker action.
 
-3. submitted -> approved
+3. submitted -> released
 
 - Trigger: approve_milestone(milestone_id)
-- Effect: escrow_held decreases by milestone amount; worker.available increases by amount; milestone.status = 'released' or 'approved' depending on design (commonly 'released' in ledger terms).
+- Effect: escrow_held decreases by milestone amount; worker.available increases by amount; milestone.status = 'released'. ('approved' is a dead enum value, never set — see ADR-0006.)
 - Caller: client action.
 - Also: emits realtime notification to both parties.
 

@@ -3,7 +3,7 @@
 > **Open-source milestone escrow reference implementation for Indian marketplaces.**
 > Built as a portfolio artifact — production-grade infrastructure code, simulated money by design.
 
-🔗 **Live demo:** [mypakka.vercel.app](https://mypakka.vercel.app) · **License:** MIT · **Status:** 🚧 In development (Phase 2 of 8)
+🔗 **Live demo:** [mypakka.vercel.app](https://mypakka.vercel.app) · **License:** MIT · **Status:** 🚧 In development (Phase 4 of 8)
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20RLS-3FCF8E?logo=supabase)](https://supabase.com)
@@ -31,23 +31,23 @@ This repo demonstrates the kind of infrastructure work senior engineers ship:
 ## Architecture
 
 ┌─────────────────┐ ┌──────────────────┐ ┌─────────────────┐
-│ Next.js 15 │────▶│ Supabase │────▶│ Postgres │
-│ PWA (Vercel) │ │ Auth + Realtime │ │ RLS + Triggers │
+│ Next.js 15      │────▶│ Supabase         │────▶│ Postgres        │
+│ PWA (Vercel)    │    │ Auth + Realtime  │    │ RLS + Triggers  │
 └─────────────────┘ └──────────────────┘ └─────────────────┘
-│ │
-▼ ▼
-┌──────────────────┐ ┌─────────────────┐
-│ Edge Functions │ │ SECURITY │
-│ (auto-release) │ │ DEFINER fns │
-└──────────────────┘ └─────────────────┘
+                            │                       │
+                            ▼                       ▼
+                   ┌──────────────────┐ ┌─────────────────┐
+                   │  pg_cron         │ │ SECURITY        │
+                   │ (auto-release)   │ │ DEFINER fns     │
+                   └──────────────────┘ └─────────────────┘
 
 **State machine** (milestone status):
 
 ​
-pending → funded → submitted → approved → released
-│
-▼
-disputed → resolved_client | resolved_worker | split
+pending → funded → submitted → released
+                        │
+                        ▼
+                   disputed → resolved_client | resolved_worker | split
 
 See [`docs/adr/0001-escrow-state-machine-in-postgres.md`](docs/adr/0001-escrow-state-machine-in-postgres.md) for the full reasoning.
 
@@ -134,9 +134,9 @@ production-swap.md # how to wire in Razorpay Route
 
 - [x] **Phase 0** — Foundations (repo, Vercel, Supabase, brand)
 - [x] **Phase 1** — Schema, RLS, escrow functions, hardening triggers, seed data
-- [ ] **Phase 2** — Auth (phone OTP) + role bifurcation + KYC onboarding (in progress)
-- [ ] Phase 3 — Job posting + browse
-- [ ] Phase 4 — Escrow ledger + state machine UI
+- [x] **Phase 2** — Auth (phone OTP) + role bifurcation + KYC onboarding
+- [x] **Phase 3** — Job posting + browse + apply
+- [ ] **Phase 4** — Escrow ledger + state machine UI (in progress)
 - [ ] Phase 5 — Materials, disputes, admin
 - [ ] Phase 6 — PWA, polish, i18n
 - [ ] Phase 7 — Tests, observability, security audit

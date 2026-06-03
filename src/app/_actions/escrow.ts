@@ -57,7 +57,7 @@ async function getAuthUserId() {
  *   'Milestone not found'               → shared
  *   'Job has no assigned worker'        → shared
  *   'Only job client or admin can approve milestone'
- *   'Milestone must be funded/submitted/approved'
+ *   'Milestone must be funded or submitted'
  *   'Insufficient locked balance'
  *
  * dispute_milestone:
@@ -75,6 +75,8 @@ function mapEscrowRpcError(
   // ── Shared messages across multiple functions ────────────────────────────
   if (msg === "Milestone not found") return "Milestone not found.";
   if (msg === "Job has no assigned worker") return "No worker is assigned to this job yet.";
+  if (msg === "invalid_idempotency_key")
+    return "Request signature missing. Please refresh and try again.";
 
   // ── fund_escrow ──────────────────────────────────────────────────────────
   if (action === "fund") {
@@ -99,7 +101,7 @@ function mapEscrowRpcError(
   if (action === "approve") {
     if (msg === "Only job client or admin can approve milestone")
       return "Only the client who posted this job can approve milestones.";
-    if (msg === "Milestone must be funded/submitted/approved")
+    if (msg === "Milestone must be funded or submitted")
       return "This milestone is not in a state that allows approval.";
     if (msg === "Insufficient locked balance")
       return "Locked escrow balance is insufficient to release payment.";
@@ -129,11 +131,12 @@ export async function fundMilestoneAction(
     }
 
     const { supabase } = await getAuthUserId();
-    const { milestone_id } = parsed.data;
+    const { milestone_id, idempotency_key } = parsed.data;
 
     // Call the SECURITY DEFINER function — all wallet mutation is server-side
     const { data, error } = await supabase.rpc("fund_escrow", {
       p_milestone_id: milestone_id,
+      p_idempotency_key: idempotency_key,
     });
 
     if (error) {
@@ -166,11 +169,12 @@ export async function submitMilestoneAction(
     }
 
     const { supabase } = await getAuthUserId();
-    const { milestone_id } = parsed.data;
+    const { milestone_id, idempotency_key } = parsed.data;
 
     // TODO: Phase 5 — proof upload before submitting
     const { data, error } = await supabase.rpc("submit_milestone", {
       p_milestone_id: milestone_id,
+      p_idempotency_key: idempotency_key,
     });
 
     if (error) {
@@ -203,10 +207,11 @@ export async function approveMilestoneAction(
     }
 
     const { supabase } = await getAuthUserId();
-    const { milestone_id } = parsed.data;
+    const { milestone_id, idempotency_key } = parsed.data;
 
     const { data, error } = await supabase.rpc("approve_milestone", {
       p_milestone_id: milestone_id,
+      p_idempotency_key: idempotency_key,
     });
 
     if (error) {
@@ -241,11 +246,12 @@ export async function disputeMilestoneAction(
     }
 
     const { supabase } = await getAuthUserId();
-    const { milestone_id, reason } = parsed.data;
+    const { milestone_id, reason, idempotency_key } = parsed.data;
 
     const { data, error } = await supabase.rpc("dispute_milestone", {
       p_milestone_id: milestone_id,
       p_reason: reason,
+      p_idempotency_key: idempotency_key,
     });
 
     if (error) {

@@ -53,7 +53,7 @@ function mapWalletRpcError(
     if (error.message === "invalid_amount") {
       return action === "topup"
         ? "Amount must be between ₹100 and ₹1,00,000."
-        : "Amount must be at least ₹100.";
+        : "Amount must be between ₹100 and ₹5,00,000.";
     }
     if (error.message === "invalid_idempotency_key") {
       return "Request signature missing. Please refresh and try again.";
@@ -137,7 +137,7 @@ export async function withdrawWalletAction(
     // Defense-in-depth: explicit worker-role pre-check. The DB layer also
     // enforces this inside withdraw_wallet via
     //   `if not public.is_worker() then raise exception 'forbidden_role' ...`
-    // (PR #19 review, CodeAnt #1: addresses missing role check at action layer.)
+    // (PR #19 review: addresses missing role check at action layer.)
     const { data: isWorker, error: roleErr } = await supabase.rpc("is_worker");
     if (roleErr) {
       console.error("[wallet.withdrawWalletAction] is_worker check failed", {

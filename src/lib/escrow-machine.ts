@@ -8,7 +8,6 @@ export type MilestoneStatus =
   | "pending"
   | "funded"
   | "submitted"
-  | "approved"
   | "released"
   | "disputed"
   | "refunded";
@@ -119,7 +118,7 @@ export function submitMilestone(state: EscrowState, milestoneId: string): void {
 }
 
 /**
- * submitted → released (approved)
+ * submitted → released
  * client.locked -= amount, worker.available += amount
  */
 export function approveMilestone(

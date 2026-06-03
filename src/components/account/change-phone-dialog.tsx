@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-
-// Matches app-wide phoneSchema in src/lib/schemas/auth.ts: 10 digits starting 6-9, with +91 prefix.
-const INDIAN_PHONE_RE = /^\+91[6-9]\d{9}$/;
+import { indianPhoneRegex, otpRegex } from "@/lib/schemas/auth";
 
 export function ChangePhoneDialog({
   currentPhone,
@@ -33,71 +31,109 @@ export function ChangePhoneDialog({
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) {
       setStep("phone");
       setNewPhone("");
       setOtp("");
       setLoading(false);
+      inFlightRef.current = false;
     }
   }, [open]);
 
   async function requestOtp() {
-    if (!INDIAN_PHONE_RE.test(newPhone)) {
+    if (inFlightRef.current) return;
+
+    // Normalize to E.164 once, use everywhere
+    const digits = newPhone.replace(/^\+91/, "");
+    if (!indianPhoneRegex.test(digits)) {
       toast.error("Enter a valid Indian phone number (+91 followed by 10 digits)");
       return;
     }
-    if (newPhone === currentPhone) {
+    const normalizedPhone = `+91${digits}`;
+    const currentDigits = currentPhone.replace(/^\+91/, "");
+    if (digits === currentDigits) {
       toast.error("This is already your current phone number");
       return;
     }
+
+    inFlightRef.current = true;
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ phone: newPhone });
-    setLoading(false);
-    if (error) {
-      toast.error("Could not send OTP: " + error.message);
-      return;
+    try {
+      const { error } = await supabase.auth.updateUser({ phone: normalizedPhone });
+      if (!mountedRef.current) return;
+      if (error) {
+        toast.error("Could not send OTP: " + error.message);
+        return;
+      }
+      // Store normalized value so verifyOtp uses the identical string
+      setNewPhone(normalizedPhone);
+      setStep("otp");
+      toast.success("OTP sent");
+    } finally {
+      inFlightRef.current = false;
+      if (mountedRef.current) setLoading(false);
     }
-    setStep("otp");
-    toast.success("OTP sent");
   }
 
   async function verifyOtp() {
-    if (otp.length !== 6) {
+    if (inFlightRef.current) return;
+
+    // Validate OTP using shared Zod schema regex
+    if (!otpRegex.test(otp)) {
       toast.error("Enter the 6-digit OTP");
       return;
     }
+
+    inFlightRef.current = true;
     setLoading(true);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      phone: newPhone,
-      token: otp,
-      type: "phone_change",
-    });
-    if (verifyError) {
-      setLoading(false);
-      toast.error("OTP verification failed: " + verifyError.message);
-      return;
+    try {
+      // newPhone is already E.164-normalized by requestOtp
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        phone: newPhone,
+        token: otp,
+        type: "phone_change",
+      });
+      if (!mountedRef.current) return;
+      if (verifyError) {
+        toast.error("OTP verification failed: " + verifyError.message);
+        return;
+      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!mountedRef.current) return;
+      if (!user) {
+        toast.error("Session lost. Please sign in again.");
+        return;
+      }
+      // Use the same normalized E.164 value for the profile mirror
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ phone: newPhone })
+        .eq("id", user.id);
+      if (!mountedRef.current) return;
+      if (profileError) {
+        toast.error("Phone changed but profile mirror failed: " + profileError.message);
+        return;
+      }
+      toast.success("Phone updated");
+      setOpen(false);
+      onChanged();
+    } finally {
+      inFlightRef.current = false;
+      if (mountedRef.current) setLoading(false);
     }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      toast.error("Session lost. Please sign in again.");
-      return;
-    }
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ phone: newPhone })
-      .eq("id", user.id);
-    setLoading(false);
-    if (profileError) {
-      toast.error("Phone changed but profile mirror failed: " + profileError.message);
-      return;
-    }
-    toast.success("Phone updated");
-    setOpen(false);
-    onChanged();
   }
 
   return (
@@ -116,7 +152,7 @@ export function ChangePhoneDialog({
             <DialogTitle>Change phone</DialogTitle>
             <DialogDescription>
               {step === "phone"
-                ? "Enter your new phone number. We&apos;ll send a 6-digit OTP."
+                ? "Enter your new phone number. We\u0027ll send a 6-digit OTP."
                 : `Enter the OTP sent to ${newPhone}.`}
             </DialogDescription>
           </DialogHeader>

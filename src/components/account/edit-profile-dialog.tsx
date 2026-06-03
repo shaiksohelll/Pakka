@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,25 +43,43 @@ export function EditProfileDialog({
     defaultValues: defaults,
   });
 
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   async function onSubmit(data: FormData) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Not signed in");
-      return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!mountedRef.current) return;
+      if (!user) {
+        toast.error("Not signed in");
+        return;
+      }
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: data.full_name, city: data.city })
+        .eq("id", user.id);
+      if (!mountedRef.current) return;
+      if (error) {
+        toast.error("Update failed: " + error.message);
+        return;
+      }
+      toast.success("Profile updated");
+      setOpen(false);
+      onSaved();
+    } finally {
+      inFlightRef.current = false;
     }
-    const { error } = await supabase
-      .from("profiles")
-      .update({ full_name: data.full_name, city: data.city })
-      .eq("id", user.id);
-    if (error) {
-      toast.error("Update failed: " + error.message);
-      return;
-    }
-    toast.success("Profile updated");
-    setOpen(false);
-    onSaved();
   }
 
   return (

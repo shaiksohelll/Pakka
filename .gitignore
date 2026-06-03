@@ -40,3 +40,5 @@ supabase/.temp/
 supabase/.branches/
 diff.txt
 *.diff
+
+scratch/
