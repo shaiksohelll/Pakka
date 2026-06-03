@@ -191,16 +191,17 @@ export function WorkerMilestones({
   }, [isAuthLoading, user, router]);
 
   // ── Idempotency key helpers ──────────────────────────────────────────────
-  function getOrCreateIdempotencyKey(milestoneId: string): string {
-    const existing = idempotencyKeysRef.current.get(milestoneId);
+  function getOrCreateIdempotencyKey(action: string, milestoneId: string): string {
+    const k = `${action}:${milestoneId}`;
+    const existing = idempotencyKeysRef.current.get(k);
     if (existing) return existing;
     const fresh = generateUuid();
-    idempotencyKeysRef.current.set(milestoneId, fresh);
+    idempotencyKeysRef.current.set(k, fresh);
     return fresh;
   }
 
-  function clearIdempotencyKey(milestoneId: string): void {
-    idempotencyKeysRef.current.delete(milestoneId);
+  function clearIdempotencyKey(action: string, milestoneId: string): void {
+    idempotencyKeysRef.current.delete(`${action}:${milestoneId}`);
   }
 
   // ── Submit handler ─────────────────────────────────────────────────────────────────
@@ -215,13 +216,13 @@ export function WorkerMilestones({
     try {
       const result = await submitMilestoneAction({
         milestone_id: milestoneId,
-        idempotency_key: getOrCreateIdempotencyKey(milestoneId),
+        idempotency_key: getOrCreateIdempotencyKey("submit", milestoneId),
       });
 
       if (!result.success) {
         toast.error(result.error);
       } else {
-        clearIdempotencyKey(milestoneId);
+        clearIdempotencyKey("submit", milestoneId);
         toast.success("Milestone submitted for review!");
       }
       queryClient.invalidateQueries({
