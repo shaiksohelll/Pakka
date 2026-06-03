@@ -554,3 +554,14 @@ begin
   return query select v_available, v_ledger_id;
 end;
 $$;
+
+revoke all on function public.fund_escrow(uuid, uuid) from public, anon;
+grant execute on function public.fund_escrow(uuid, uuid) to authenticated;
+revoke all on function public.submit_milestone(uuid, uuid) from public, anon;
+grant execute on function public.submit_milestone(uuid, uuid) to authenticated;
+revoke all on function public.approve_milestone(uuid, uuid) from public, anon;
+grant execute on function public.approve_milestone(uuid, uuid) to authenticated;
+revoke all on function public.dispute_milestone(uuid, text, uuid) from public, anon;
+grant execute on function public.dispute_milestone(uuid, text, uuid) to authenticated;
+revoke execute on function public.withdraw_wallet(numeric, uuid) from anon, public;
+revoke execute on function public.topup_wallet(numeric, uuid) from anon, public;
