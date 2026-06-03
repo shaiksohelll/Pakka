@@ -13,6 +13,7 @@ import {
   type ApproveMilestoneInput,
   type DisputeMilestoneInput,
 } from "@/lib/schemas/escrow";
+import { mapEscrowRpcError } from "@/lib/rpc-errors";
 
 export type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -66,58 +67,7 @@ async function getAuthUserId() {
  *   'Only job participants or admin can raise dispute'
  *   'Cannot dispute released/refunded milestone'
  */
-function mapEscrowRpcError(
-  action: "fund" | "submit" | "approve" | "dispute",
-  error: PostgrestError,
-): string | null {
-  const msg = error.message ?? "";
 
-  // ── Shared messages across multiple functions ────────────────────────────
-  if (msg === "Milestone not found") return "Milestone not found.";
-  if (msg === "Job has no assigned worker") return "No worker is assigned to this job yet.";
-  if (msg === "invalid_idempotency_key")
-    return "Request signature missing. Please refresh and try again.";
-
-  // ── fund_escrow ──────────────────────────────────────────────────────────
-  if (action === "fund") {
-    if (msg === "Only job client or admin can fund escrow")
-      return "Only the client who posted this job can fund escrow.";
-    if (msg === "Milestone must be in pending state")
-      return "This milestone is not in the pending state and cannot be funded.";
-    if (msg === "Insufficient available balance")
-      return "Not enough balance in your wallet to fund this milestone.";
-  }
-
-  // ── submit_milestone ─────────────────────────────────────────────────────
-  if (action === "submit") {
-    if (msg === "Only assigned worker or admin can submit milestone")
-      return "Only the assigned worker can submit this milestone.";
-    // 'Milestone must be funded to submit (current: ...)' — starts-with match
-    if (msg.startsWith("Milestone must be funded to submit"))
-      return "This milestone must be funded before it can be submitted.";
-  }
-
-  // ── approve_milestone ────────────────────────────────────────────────────
-  if (action === "approve") {
-    if (msg === "Only job client or admin can approve milestone")
-      return "Only the client who posted this job can approve milestones.";
-    if (msg === "Milestone must be funded or submitted")
-      return "This milestone is not in a state that allows approval.";
-    if (msg === "Insufficient locked balance")
-      return "Locked escrow balance is insufficient to release payment.";
-  }
-
-  // ── dispute_milestone ────────────────────────────────────────────────────
-  if (action === "dispute") {
-    if (msg === "Reason is required") return "A reason is required to raise a dispute.";
-    if (msg === "Only job participants or admin can raise dispute")
-      return "Only the client or worker on this job can raise a dispute.";
-    if (msg === "Cannot dispute released/refunded milestone")
-      return "This milestone has already been settled and cannot be disputed.";
-  }
-
-  return null;
-}
 
 // ── Fund Milestone ────────────────────────────────────────────────────────────
 // pending → funded: calls fund_escrow() SECURITY DEFINER function
