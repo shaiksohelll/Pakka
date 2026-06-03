@@ -46,6 +46,9 @@ begin
   if p_amount is null or p_amount < 100 then
     raise exception 'invalid_amount' using errcode = '22023';
   end if;
+  if p_amount > 500000 then
+    raise exception 'invalid_amount' using errcode = '22023';
+  end if;
 
   -- Idempotency key required (NULL keys would bypass the UNIQUE index)
   if p_idempotency_key is null then

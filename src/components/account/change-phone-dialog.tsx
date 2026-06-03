@@ -54,13 +54,15 @@ export function ChangePhoneDialog({
   async function requestOtp() {
     if (inFlightRef.current) return;
 
-    // Validate phone using shared Zod schema regex
+    // Normalize to E.164 once, use everywhere
     const digits = newPhone.replace(/^\+91/, "");
     if (!indianPhoneRegex.test(digits)) {
       toast.error("Enter a valid Indian phone number (+91 followed by 10 digits)");
       return;
     }
-    if (newPhone === currentPhone) {
+    const normalizedPhone = `+91${digits}`;
+    const currentDigits = currentPhone.replace(/^\+91/, "");
+    if (digits === currentDigits) {
       toast.error("This is already your current phone number");
       return;
     }
@@ -68,12 +70,14 @@ export function ChangePhoneDialog({
     inFlightRef.current = true;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ phone: newPhone });
+      const { error } = await supabase.auth.updateUser({ phone: normalizedPhone });
       if (!mountedRef.current) return;
       if (error) {
         toast.error("Could not send OTP: " + error.message);
         return;
       }
+      // Store normalized value so verifyOtp uses the identical string
+      setNewPhone(normalizedPhone);
       setStep("otp");
       toast.success("OTP sent");
     } finally {
@@ -94,6 +98,7 @@ export function ChangePhoneDialog({
     inFlightRef.current = true;
     setLoading(true);
     try {
+      // newPhone is already E.164-normalized by requestOtp
       const { error: verifyError } = await supabase.auth.verifyOtp({
         phone: newPhone,
         token: otp,
@@ -112,6 +117,7 @@ export function ChangePhoneDialog({
         toast.error("Session lost. Please sign in again.");
         return;
       }
+      // Use the same normalized E.164 value for the profile mirror
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ phone: newPhone })
