@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -20,19 +21,20 @@ import { toast } from "sonner";
 export function SignOutButton() {
   const router = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  async function handleSignOut() {
-    setLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setLoading(false);
-    if (error) {
+  const signOutMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    },
+    onError: (error: Error) => {
       toast.error("Sign out failed: " + error.message);
-      return;
-    }
-    router.push("/");
-  }
+    },
+    onSuccess: () => {
+      router.push("/");
+    },
+  });
 
   return (
     <>
@@ -54,8 +56,11 @@ export function SignOutButton() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSignOut} disabled={loading}>
-              {loading ? "Signing out..." : "Sign out"}
+            <AlertDialogAction
+              onClick={() => signOutMutation.mutate()}
+              disabled={signOutMutation.isPending}
+            >
+              {signOutMutation.isPending ? "Signing out..." : "Sign out"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

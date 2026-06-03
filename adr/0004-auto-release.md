@@ -1,5 +1,5 @@
 Title: ADR-0004: Auto-release cadence
-Status: Proposed
+Status: Accepted
 Context:
 
 - Milestones should auto-release after a fixed window if no dispute exists to prevent funds from staying locked indefinitely.

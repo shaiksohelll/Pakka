@@ -28,7 +28,7 @@ begin
   end if;
 
   -- 2. Bounds
-  if p_amount < 100 then
+  if p_amount is null or p_amount < 100 then
     raise exception 'invalid_amount' using errcode = '22023';
   end if;
 

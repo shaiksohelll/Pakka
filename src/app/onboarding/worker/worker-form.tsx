@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
@@ -103,12 +103,16 @@ function Step3() {
     formState: { errors },
   } = useFormContext<WorkerOnboardingInput>();
   const selfieFile = watch("selfie") as File | undefined;
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const previewUrl = useMemo(() => {
-    if (selfieFile instanceof File) {
-      return URL.createObjectURL(selfieFile);
+  useEffect(() => {
+    if (!(selfieFile instanceof File)) {
+      setPreviewUrl(null);
+      return;
     }
-    return null;
+    const url = URL.createObjectURL(selfieFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [selfieFile]);
 
   return (

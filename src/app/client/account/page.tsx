@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,14 +25,26 @@ export default function ClientAccountPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestIdRef = useRef(0);
+
   async function load() {
+    const myRequestId = ++requestIdRef.current;
     const supabase = createClient();
     setLoading(true);
     setError(null);
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
+    if (myRequestId !== requestIdRef.current) return;
+    if (authError) {
+      // TODO: Sentry.captureException(authError)
+      setError("Couldn't verify your session. Please try again.");
+      setLoading(false);
+      return;
+    }
     if (!user) {
+      setProfile(null);
       setLoading(false);
       router.replace("/login");
       return;
@@ -42,6 +54,7 @@ export default function ClientAccountPage() {
       .select("id, full_name, phone, city, role, created_at")
       .eq("id", user.id)
       .single();
+    if (myRequestId !== requestIdRef.current) return;
     if (fetchError) {
       setError(fetchError.message);
       setLoading(false);

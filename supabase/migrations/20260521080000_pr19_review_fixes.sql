@@ -106,6 +106,9 @@ begin
 end;
 $$;
 
+grant execute on function public.withdraw_wallet(numeric, uuid) to authenticated;
+revoke execute on function public.withdraw_wallet(numeric, uuid) from anon, public;
+
 -- 2. guard_milestones_status — drop GUC bypass, gate pg_cron context by explicit role check
 create or replace function public.guard_milestones_status()
 returns trigger

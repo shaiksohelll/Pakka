@@ -63,6 +63,11 @@ declare
   v_status public.milestone_status;
   v_ledger_id uuid;
 begin
+  -- Reject NULL idempotency keys (NULLs bypass the UNIQUE index)
+  if p_idempotency_key is null then
+    raise exception 'invalid_idempotency_key' using errcode = '22023';
+  end if;
+
   select m.job_id, j.client_id, m.amount, m.status
   into v_job_id, v_client_id, v_amount, v_status
   from public.milestones m
@@ -155,6 +160,14 @@ declare
   v_worker_id uuid;
   v_status public.milestone_status;
 begin
+  -- p_idempotency_key is accepted for API-signature consistency with the other
+  -- escrow RPCs; the actual idempotency guard for submit relies on milestone
+  -- status (early-return when already 'submitted'). We still reject NULL to
+  -- enforce the client contract.
+  if p_idempotency_key is null then
+    raise exception 'invalid_idempotency_key' using errcode = '22023';
+  end if;
+
   select m.job_id, j.worker_id, m.status
   into v_job_id, v_worker_id, v_status
   from public.milestones m
@@ -217,6 +230,11 @@ declare
   v_status public.milestone_status;
   v_ledger_id uuid;
 begin
+  -- Reject NULL idempotency keys (NULLs bypass the UNIQUE index)
+  if p_idempotency_key is null then
+    raise exception 'invalid_idempotency_key' using errcode = '22023';
+  end if;
+
   select m.job_id, j.client_id, j.worker_id, m.amount, m.status
   into v_job_id, v_client_id, v_worker_id, v_amount, v_status
   from public.milestones m
@@ -332,6 +350,11 @@ declare
   v_status public.milestone_status;
   v_dispute_id uuid;
 begin
+  -- Reject NULL idempotency keys (enforces client contract)
+  if p_idempotency_key is null then
+    raise exception 'invalid_idempotency_key' using errcode = '22023';
+  end if;
+
   if p_reason is null or btrim(p_reason) = '' then
     raise exception 'Reason is required';
   end if;
