@@ -15,14 +15,14 @@ lifting state, and composing internals.
 
 ## Rules
 
-### Component Architecture (CRITICAL)
+### Component Architecture (HIGH)
 
 - `architecture-avoid-boolean-props.md` - Don't add boolean props to customize
   behavior
 - `architecture-compound-components.md` - Structure as compound components with
   shared context
 
-### State Management (HIGH)
+### State Management (MEDIUM)
 
 - `state-lift-state.md` - Lift state into provider components
 - `state-context-interface.md` - Define clear context interfaces
@@ -33,6 +33,13 @@ lifting state, and composing internals.
 
 - `patterns-children-over-render-props.md` - Prefer children over renderX props
 - `patterns-explicit-variants.md` - Create explicit component variants
+
+### React 19 APIs (MEDIUM)
+
+> **⚠️ React 19+ only.** Skip if you're on React 18 or earlier.
+
+- `react19-no-forwardref.md` - Prefer `ref` as a regular prop over `forwardRef`,
+  and `use()` as a flexible alternative to `useContext()`
 
 ## Core Principles
 
@@ -50,6 +57,7 @@ lifting state, and composing internals.
    - `architecture-` for Component Architecture
    - `state-` for State Management
    - `patterns-` for Implementation Patterns
+   - `react19-` for React 19 APIs
 3. Fill in the frontmatter and content
 4. Ensure you have clear examples with explanations
 

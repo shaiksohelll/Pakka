@@ -9,9 +9,12 @@ tags: react19, refs, context, hooks
 
 > **⚠️ React 19+ only.** Skip this if you're on React 18 or earlier.
 
-In React 19, `ref` is now a regular prop (no `forwardRef` wrapper needed), and `use()` replaces `useContext()`.
+In React 19, `ref` can be passed as a regular prop (so `forwardRef` is usually
+unnecessary), and `use(context)` is a more flexible alternative to
+`useContext()`. Both `forwardRef` and `useContext()` still work and are not
+deprecated — the guidance below is about the preferred pattern for new code.
 
-**Incorrect (forwardRef in React 19):**
+**Legacy (forwardRef still works):**
 
 ```tsx
 const ComposerInput = forwardRef<TextInput, Props>((props, ref) => {
@@ -19,7 +22,7 @@ const ComposerInput = forwardRef<TextInput, Props>((props, ref) => {
 })
 ```
 
-**Correct (ref as a regular prop):**
+**Preferred (ref as a regular prop):**
 
 ```tsx
 function ComposerInput({ ref, ...props }: Props & { ref?: React.Ref<TextInput> }) {
@@ -27,16 +30,17 @@ function ComposerInput({ ref, ...props }: Props & { ref?: React.Ref<TextInput> }
 }
 ```
 
-**Incorrect (useContext in React 19):**
+**Also valid (useContext still supported):**
 
 ```tsx
 const value = useContext(MyContext)
 ```
 
-**Correct (use instead of useContext):**
+**Preferred when you need conditional/loop usage (use):**
 
 ```tsx
 const value = use(MyContext)
 ```
 
-`use()` can also be called conditionally, unlike `useContext()`.
+Unlike `useContext()`, `use()` can be called conditionally (e.g. inside an `if`
+block), which is the main reason to prefer it for new code.

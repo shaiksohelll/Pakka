@@ -21,4 +21,4 @@ Brief explanation of the rule and why it matters.
 // Good code example
 ```
 
-Reference: [Link](https://example.com)
+Reference: [React documentation on the relevant topic](https://example.com)

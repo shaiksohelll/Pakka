@@ -23,9 +23,9 @@ function ChannelComposer({ channelId }: { channelId: string }) {
     <Composer.Frame>
       <Composer.Input
         value={state.input}
-        onChange={(text) => sync.updateInput(text)}
+        onChange={(text) => updateInput(text)}
       />
-      <Composer.Submit onPress={() => sync.submit()} />
+      <Composer.Submit onPress={() => submit()} />
     </Composer.Frame>
   )
 }
@@ -48,8 +48,8 @@ function ChannelProvider({
   return (
     <Composer.Provider
       state={state}
-      actions={{ update, submit }}
-      meta={{ inputRef }}
+      actions= update, submit 
+      meta= inputRef 
     >
       {children}
     </Composer.Provider>
@@ -90,7 +90,7 @@ function ForwardMessageProvider({ children }) {
   return (
     <Composer.Provider
       state={state}
-      actions={{ update: setState, submit: forwardMessage }}
+      actions= update: setState, submit: forwardMessage 
     >
       {children}
     </Composer.Provider>
@@ -102,7 +102,7 @@ function ChannelProvider({ channelId, children }) {
   const { state, update, submit } = useGlobalChannel(channelId)
 
   return (
-    <Composer.Provider state={state} actions={{ update, submit }}>
+    <Composer.Provider state={state} actions= update, submit >
       {children}
     </Composer.Provider>
   )
