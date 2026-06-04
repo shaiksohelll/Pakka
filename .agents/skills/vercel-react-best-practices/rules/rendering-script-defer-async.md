@@ -50,7 +50,7 @@ export default function Document() {
 }
 ```
 
-**Note:** In Next.js, prefer the `next/script` component with `strategy` prop instead of raw script tags:
+**Note:** In Next.js, prefer the `next/script` component with the `strategy` prop instead of raw script tags. `afterInteractive` (the default) is the right choice for most scripts, including analytics and most DOM-dependent utilities. Reserve `beforeInteractive` for the rare critical scripts that must run before React hydration (e.g. polyfills or bot detection) - it is not a generic replacement for HTML `defer`.
 
 ```tsx
 import Script from 'next/script'
@@ -59,7 +59,7 @@ export default function Page() {
   return (
     <>
       <Script src="https://example.com/analytics.js" strategy="afterInteractive" />
-      <Script src="/scripts/utils.js" strategy="beforeInteractive" />
+      <Script src="/scripts/utils.js" strategy="afterInteractive" />
     </>
   )
 }

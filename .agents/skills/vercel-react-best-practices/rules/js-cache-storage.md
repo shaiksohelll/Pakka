@@ -46,7 +46,13 @@ let cookieCache: Record<string, string> | null = null
 function getCookie(name: string) {
   if (!cookieCache) {
     cookieCache = Object.fromEntries(
-      document.cookie.split('; ').map(c => c.split('='))
+      document.cookie.split('; ').map(c => {
+        const i = c.indexOf('=')
+        // Split on the first '=' only: cookie values may contain '='.
+        const k = i >= 0 ? c.slice(0, i) : c
+        const v = i >= 0 ? c.slice(i + 1) : ''
+        return [k, v]
+      })
     )
   }
   return cookieCache[name]
@@ -59,7 +65,12 @@ If storage can change externally (another tab, server-set cookies), invalidate c
 
 ```typescript
 window.addEventListener('storage', (e) => {
-  if (e.key) storageCache.delete(e.key)
+  // e.key is null when the whole store is cleared (e.g. localStorage.clear()).
+  if (e.key === null) {
+    storageCache.clear()
+  } else {
+    storageCache.delete(e.key)
+  }
 })
 
 document.addEventListener('visibilitychange', () => {

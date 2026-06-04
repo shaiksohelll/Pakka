@@ -20,8 +20,9 @@ const cache = new LRUCache<string, any>({
 })
 
 export async function getUser(id: string) {
-  const cached = cache.get(id)
-  if (cached) return cached
+  // Use has() rather than a truthy check so legitimately falsy/null
+  // cached values (e.g. a cached "not found") are not re-fetched every time.
+  if (cache.has(id)) return cache.get(id)
 
   const user = await db.user.findUnique({ where: { id } })
   cache.set(id, user)

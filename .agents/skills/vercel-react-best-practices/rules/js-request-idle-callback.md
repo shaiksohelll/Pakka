@@ -80,10 +80,14 @@ function processLargeDataset(items: Item[]) {
 }
 ```
 
-**With fallback for unsupported browsers:**
+**With fallback for unsupported browsers (SSR-safe):**
 
 ```typescript
-const scheduleIdleWork = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1))
+// Guard window access so this module can be imported during SSR without crashing.
+const scheduleIdleWork =
+  typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+    ? window.requestIdleCallback.bind(window)
+    : ((cb: () => void) => setTimeout(cb, 1))
 
 scheduleIdleWork(() => {
   // Non-critical work

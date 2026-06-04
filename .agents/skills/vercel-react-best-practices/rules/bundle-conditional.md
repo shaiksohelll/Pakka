@@ -28,4 +28,4 @@ function AnimationPlayer({ enabled, setEnabled }: { enabled: boolean; setEnabled
 }
 ```
 
-The `typeof window !== 'undefined'` check prevents bundling this module for SSR, optimizing server bundle size and build speed.
+The `typeof window !== 'undefined'` check prevents server-side execution of this branch. Whether the dynamically imported module is also excluded from the server bundle/trace depends on your framework and bundler's static analysis, so validate the actual impact by inspecting your build output (emitted chunks / bundle stats) rather than assuming automatic exclusion.

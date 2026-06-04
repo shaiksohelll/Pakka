@@ -2,18 +2,22 @@
 
 A structured repository for creating and maintaining React Best Practices optimized for agents and LLMs.
 
+> **Note:** This directory is an installed snapshot of the compiled skill. The build tooling described below (the `src/` directory, the `pnpm` scripts, and the generated `test-cases.json`) lives in the upstream [`vercel-labs/agent-skills`](https://github.com/vercel-labs/agent-skills) repository and is **not** shipped with this install. The files actually present here are `SKILL.md`, `AGENTS.md`, `metadata.json`, and the `rules/` directory. The sections below document the upstream authoring workflow for reference.
+
 ## Structure
 
 - `rules/` - Individual rule files (one per rule)
   - `_sections.md` - Section metadata (titles, impacts, descriptions)
   - `_template.md` - Template for creating new rules
   - `area-description.md` - Individual rule files
-- `src/` - Build scripts and utilities
+- `src/` - Build scripts and utilities _(upstream only)_
 - `metadata.json` - Document metadata (version, organization, abstract)
 - __`AGENTS.md`__ - Compiled output (generated)
-- __`test-cases.json`__ - Test cases for LLM evaluation (generated)
+- __`test-cases.json`__ - Test cases for LLM evaluation (generated, upstream only)
 
 ## Getting Started
+
+> These steps apply to the upstream `vercel-labs/agent-skills` repository, not this installed snapshot.
 
 1. Install dependencies:
    ```bash
@@ -82,6 +86,7 @@ Brief explanation of the rule and why it matters.
 Optional explanatory text after examples.
 
 Reference: [Link](https://example.com)
+```
 
 ## File Naming Convention
 
@@ -101,6 +106,8 @@ Reference: [Link](https://example.com)
 - `LOW` - Incremental improvements
 
 ## Scripts
+
+> Upstream only - not available in this installed snapshot.
 
 - `pnpm build` - Compile rules into AGENTS.md
 - `pnpm validate` - Validate all rule files

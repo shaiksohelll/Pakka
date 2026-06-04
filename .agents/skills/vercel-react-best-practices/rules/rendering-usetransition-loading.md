@@ -7,7 +7,7 @@ tags: rendering, transitions, useTransition, loading, state
 
 ## Use useTransition Over Manual Loading States
 
-Use `useTransition` instead of manual `useState` for loading states. This provides built-in `isPending` state and automatically manages transitions.
+Use `useTransition` to mark non-urgent state updates so the UI stays responsive, and use its built-in `isPending` flag instead of a manual `useState` loading boolean. Note that React only treats the **synchronous** state updates made inside the `startTransition` callback as part of the transition - network work should happen outside the transition, with the resulting state update wrapped in `startTransition`.
 
 **Incorrect (manual loading state):**
 
@@ -35,7 +35,7 @@ function SearchResults() {
 }
 ```
 
-**Correct (useTransition with built-in pending state):**
+**Correct (await outside the transition, wrap the resulting update):**
 
 ```tsx
 import { useTransition, useState } from 'react'
@@ -45,12 +45,14 @@ function SearchResults() {
   const [results, setResults] = useState([])
   const [isPending, startTransition] = useTransition()
 
-  const handleSearch = (value: string) => {
+  const handleSearch = async (value: string) => {
     setQuery(value) // Update input immediately
-    
-    startTransition(async () => {
-      // Fetch and update results
-      const data = await fetchResults(value)
+
+    // Do the async work outside the transition...
+    const data = await fetchResults(value)
+
+    // ...then mark the resulting state update as non-urgent.
+    startTransition(() => {
       setResults(data)
     })
   }
@@ -67,9 +69,10 @@ function SearchResults() {
 
 **Benefits:**
 
-- **Automatic pending state**: No need to manually manage `setIsLoading(true/false)`
-- **Error resilience**: Pending state correctly resets even if the transition throws
-- **Better responsiveness**: Keeps the UI responsive during updates
-- **Interrupt handling**: New transitions automatically cancel pending ones
+- **Built-in pending state**: `isPending` is managed for you while the transition's updates render
+- **Better responsiveness**: Urgent updates (like typing into the input) aren't blocked by the non-urgent results render
+- **Interrupt handling**: A newer transition's render can supersede an in-progress one
+
+Note: `useTransition` does not cancel in-flight network requests or replace request-lifecycle error handling - handle fetch errors and cancellation (e.g. `AbortController`) yourself.
 
 Reference: [useTransition](https://react.dev/reference/react/useTransition)
