@@ -47,8 +47,9 @@ function Composer({
 const ComposerContext = createContext<ComposerContextValue | null>(null)
 
 function ComposerProvider({ children, state, actions, meta }: ProviderProps) {
+  const value = { state, actions, meta }
   return (
-    <ComposerContext value= state, actions, meta >
+    <ComposerContext value={value}>
       {children}
     </ComposerContext>
   )
@@ -112,8 +113,8 @@ const Composer = {
 Consumers explicitly compose exactly what they need. No hidden conditionals. And the state, actions and meta are dependency-injected by a parent provider, allowing multiple usages of the same component structure.
 
 > **React 19+ APIs.** These examples use `use(ComposerContext)` and the
-> Context-as-provider shorthand (`<ComposerContext value={...}>`). On React 18,
-> use `useContext(ComposerContext)` and `<ComposerContext.Provider value={...}>`
+> Context-as-provider shorthand (`<ComposerContext value={value}>`). On React 18,
+> use `useContext(ComposerContext)` and `<ComposerContext.Provider value={value}>`
 > instead.
 
 **Guard against missing providers.** `ComposerContext` defaults to `null`, so

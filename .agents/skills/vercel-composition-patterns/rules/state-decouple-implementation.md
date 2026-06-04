@@ -44,13 +44,11 @@ function ChannelProvider({
 }) {
   const { state, update, submit } = useGlobalChannel(channelId)
   const inputRef = useRef(null)
+  const actions = { update, submit }
+  const meta = { inputRef }
 
   return (
-    <Composer.Provider
-      state={state}
-      actions= update, submit 
-      meta= inputRef 
-    >
+    <Composer.Provider state={state} actions={actions} meta={meta}>
       {children}
     </Composer.Provider>
   )
@@ -86,12 +84,10 @@ function Channel({ channelId }: { channelId: string }) {
 function ForwardMessageProvider({ children }) {
   const [state, setState] = useState(initialState)
   const forwardMessage = useForwardMessage()
+  const actions = { update: setState, submit: forwardMessage }
 
   return (
-    <Composer.Provider
-      state={state}
-      actions= update: setState, submit: forwardMessage 
-    >
+    <Composer.Provider state={state} actions={actions}>
       {children}
     </Composer.Provider>
   )
@@ -100,9 +96,10 @@ function ForwardMessageProvider({ children }) {
 // Global synced state for channels
 function ChannelProvider({ channelId, children }) {
   const { state, update, submit } = useGlobalChannel(channelId)
+  const actions = { update, submit }
 
   return (
-    <Composer.Provider state={state} actions= update, submit >
+    <Composer.Provider state={state} actions={actions}>
       {children}
     </Composer.Provider>
   )
