@@ -28,7 +28,11 @@ export default function RootLayout({ children }) {
 
 **Correct (loads after hydration):**
 
+`next/dynamic` with `{ ssr: false }` is only allowed in a Client Component, so isolate it in its own `'use client'` file and render that from the Server Component `RootLayout`.
+
 ```tsx
+// app/analytics-client.tsx
+'use client'
 import dynamic from 'next/dynamic'
 
 const Analytics = dynamic(
@@ -36,12 +40,21 @@ const Analytics = dynamic(
   { ssr: false }
 )
 
+export default function AnalyticsClient() {
+  return <Analytics />
+}
+```
+
+```tsx
+// app/layout.tsx (Server Component)
+import AnalyticsClient from './analytics-client'
+
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <AnalyticsClient />
       </body>
     </html>
   )
