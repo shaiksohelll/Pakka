@@ -49,3 +49,6 @@ scratch/
 !tsconfig*.json
 !jsconfig.json
 
+
+test-results/
+playwright-report/
