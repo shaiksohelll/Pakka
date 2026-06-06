@@ -286,6 +286,7 @@ export function WorkerJobDetail({ workerKyc }: { workerKyc: "pending" | "verifie
           ) : (
             <Button
               className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              data-testid="apply-job"
               onClick={() => setApplyOpen(true)}
               disabled={!canApply}
             >

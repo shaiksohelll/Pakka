@@ -610,7 +610,7 @@ function MilestoneCard({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-sm font-bold">{formatInr(m.amount)}</span>
-          <StatusBadge variant={m.status} />
+          <StatusBadge variant={m.status} data-testid={`milestone-status-${m.sequence - 1}`} />
         </div>
       </div>
 
@@ -654,6 +654,7 @@ function MilestoneCard({
           <Button
             size="sm"
             className="flex-1 gap-1.5 bg-blue-600 hover:bg-blue-700"
+            data-testid={`fund-milestone-${m.sequence - 1}`}
             disabled={isPending || !canFund}
             onClick={onFund}
           >
@@ -673,6 +674,7 @@ function MilestoneCard({
             <Button
               size="sm"
               className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+              data-testid={`approve-milestone-${m.sequence - 1}`}
               disabled={isPending}
               onClick={onApprove}
             >

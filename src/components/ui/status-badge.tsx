@@ -74,9 +74,10 @@ const VARIANT_MAP: Record<StatusVariant, { label: string; className: string }> =
 type StatusBadgeProps = {
   variant: StatusVariant | null | undefined;
   className?: string;
+  "data-testid"?: string;
 };
 
-export function StatusBadge({ variant, className }: StatusBadgeProps) {
+export function StatusBadge({ variant, className, "data-testid": testId }: StatusBadgeProps) {
   if (variant == null) {
     return (
       <Badge
@@ -95,6 +96,7 @@ export function StatusBadge({ variant, className }: StatusBadgeProps) {
   return (
     <Badge
       variant="outline"
+      data-testid={testId}
       className={cn("text-xs font-medium capitalize", config.className, className)}
     >
       {config.label}
