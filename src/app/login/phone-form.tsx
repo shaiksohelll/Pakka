@@ -26,7 +26,8 @@ export function LoginForm() {
     startTransition(async () => {
       const result = await requestOtpAction(values);
       if (!result.success) {
-        toast.error(result.error ?? "Unable to send OTP.");
+        console.error("SEND OTP FAILED:", result.error);
+        toast.error(result.error ?? "Failed to send OTP.");
         return;
       }
 
@@ -50,6 +51,7 @@ export function LoginForm() {
             </div>
             <Input
               id="phone"
+              data-testid="phone-input"
               inputMode="numeric"
               maxLength={10}
               placeholder="9876543210"
@@ -67,7 +69,7 @@ export function LoginForm() {
       </Card>
 
       <div className="sticky bottom-0 mt-auto border-t bg-background/95 py-4 backdrop-blur">
-        <Button type="submit" className="w-full" disabled={isPending}>
+        <Button type="submit" data-testid="send-otp" className="w-full" disabled={isPending}>
           {isPending ? "Sending OTP..." : "Send OTP"}
         </Button>
       </div>

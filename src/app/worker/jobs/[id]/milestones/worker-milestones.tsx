@@ -314,7 +314,7 @@ export function WorkerMilestones({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-sm font-bold">{formatInr(m.amount)}</span>
-                  <StatusBadge variant={m.status} />
+                  <StatusBadge variant={m.status} data-testid={`milestone-status-${m.sequence - 1}`} />
                 </div>
               </div>
 
@@ -361,6 +361,7 @@ export function WorkerMilestones({
                 <Button
                   size="sm"
                   className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                  data-testid={`submit-milestone-${m.sequence - 1}`}
                   disabled={isInFlight}
                   onClick={() => handleSubmit(m.id)}
                 >

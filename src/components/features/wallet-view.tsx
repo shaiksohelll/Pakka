@@ -145,7 +145,7 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
               Available
             </p>
           </div>
-          <p className="text-2xl font-bold text-emerald-700">
+          <p className="text-2xl font-bold text-emerald-700" data-testid="wallet-available">
             {formatInr(wallet.available_balance)}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -159,7 +159,7 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
               Locked
             </p>
           </div>
-          <p className="text-2xl font-bold text-blue-700">{formatInr(wallet.locked_balance)}</p>
+          <p className="text-2xl font-bold text-blue-700" data-testid="wallet-locked">{formatInr(wallet.locked_balance)}</p>
           <p className="text-xs text-muted-foreground">In active escrows</p>
         </div>
       </section>
@@ -215,6 +215,7 @@ export function WalletView({ role }: { role: "client" | "worker" }) {
               return (
                 <li
                   key={entry.id}
+                  data-testid={entry.type === "fund" ? "ledger-row-fund" : undefined}
                   className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
                 >
                   <div className="flex items-center gap-3">

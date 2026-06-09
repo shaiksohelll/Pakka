@@ -191,7 +191,7 @@ export function PostJobForm() {
             <h2 className="text-xl font-semibold text-primary">Job Basics</h2>
             <div className="space-y-1.5">
               <Label htmlFor="title">Job Title</Label>
-              <Input id="title" placeholder="e.g. Fix bathroom tiles" {...register("title")} />
+              <Input id="title" data-testid="job-title" placeholder="e.g. Fix bathroom tiles" {...register("title")} />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
@@ -423,6 +423,7 @@ export function PostJobForm() {
                     </span>
                     <Input
                       id={`ms-amt-${i}`}
+                      data-testid={`milestone-amount-${i}`}
                       type="number"
                       className="pl-7"
                       placeholder="10000"
@@ -645,6 +646,7 @@ export function PostJobForm() {
           ) : (
             <Button
               type="submit"
+              data-testid="job-submit"
               className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700"
               onClick={onSubmit}
               disabled={isPending}

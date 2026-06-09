@@ -432,6 +432,7 @@ export function ClientJobDetail() {
                   <Button
                     size="sm"
                     className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                    data-testid="accept-applicant"
                     disabled={isPending}
                     onClick={() => handleAccept(app.id)}
                   >

@@ -39,6 +39,7 @@ export function SignOutButton() {
   return (
     <>
       <Button
+        data-testid="sign-out"
         variant="outline"
         className="w-full justify-start gap-2"
         onClick={() => setOpen(true)}
@@ -57,6 +58,7 @@ export function SignOutButton() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              data-testid="sign-out-confirm"
               onClick={() => signOutMutation.mutate()}
               disabled={signOutMutation.isPending}
             >

@@ -87,7 +87,7 @@ export function TopUpDialog() {
 
   return (
     <>
-      <Button size="sm" variant="default" className="gap-1.5" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="default" className="gap-1.5" onClick={() => setOpen(true)} data-testid="add-money">
         <Plus className="h-4 w-4" />
         Add Money
       </Button>
@@ -113,6 +113,7 @@ export function TopUpDialog() {
                 onChange={(e) => setAmountStr(e.target.value)}
                 onWheel={blurOnWheel}
                 disabled={isPending}
+                data-testid="topup-amount"
               />
             </div>
             <div className="flex flex-wrap gap-2">
@@ -134,7 +135,7 @@ export function TopUpDialog() {
             <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isPending}>
+            <Button onClick={handleSubmit} disabled={isPending} data-testid="topup-confirm">
               {isPending ? "Processing…" : "Add money"}
             </Button>
           </DialogFooter>

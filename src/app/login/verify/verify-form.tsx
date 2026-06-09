@@ -42,6 +42,7 @@ export function VerifyOtpForm({ phone }: VerifyOtpFormProps) {
     startTransition(async () => {
       const result = await verifyOtpAction(values);
       if (!result.success) {
+        console.error("OTP FAILED:", result.error);
         toast.error(result.error ?? "OTP verification failed.");
         return;
       }
@@ -84,6 +85,7 @@ export function VerifyOtpForm({ phone }: VerifyOtpFormProps) {
             <Label htmlFor="otp">6-digit OTP</Label>
             <InputOTP
               id="otp"
+              data-testid="otp-input"
               maxLength={6}
               value={form.watch("otp")}
               onChange={handleOtpChange}
@@ -113,7 +115,7 @@ export function VerifyOtpForm({ phone }: VerifyOtpFormProps) {
       </Card>
 
       <div className="sticky bottom-0 mt-auto border-t bg-background/95 py-4 backdrop-blur">
-        <Button type="submit" className="w-full" disabled={isPending}>
+        <Button type="submit" data-testid="verify-otp" className="w-full" disabled={isPending}>
           {isPending ? "Verifying..." : "Verify OTP"}
         </Button>
       </div>
